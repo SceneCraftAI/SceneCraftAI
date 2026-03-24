@@ -1,0 +1,338 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: {userId}
+    // Fields:
+    //   - uid: string (required, immutable) - Firebase Auth UID
+    //   - email: string (required) - User email
+    //   - displayName: string (optional) - User display name
+    //   - hashtag: string (required) - 4-character unique identifier
+    //   - photoURL: string (optional) - User photo URL
+    //   - isAdmin: boolean (required) - Admin flag
+    //   - freePromptsUsed: number (required) - Count of free prompts used
+    //   - isSubscribed: boolean (required) - Subscription status
+    //   - subscriptionTier: string (required) - 'free', 'pro', 'elite'
+    //   - subscriptionExpiry: number (optional) - Expiry timestamp
+    //   - createdAt: timestamp (required, immutable) - Creation timestamp
+    //
+    // Collection: prompts
+    // Document ID: {promptId}
+    // Fields:
+    //   - id: string (required, immutable)
+    //   - title: string (optional)
+    //   - date: number (required)
+    //   - mode: string (required)
+    //   - selectedBlocks: string or list (required)
+    //   - customInstructions: list (required) - Array of strings
+    //   - compiledPrompt: string (required)
+    //   - isFavorite: boolean (required)
+    //   - likes: number (optional)
+    //   - authorId: string (optional, immutable)
+    //   - authorName: string (optional)
+    //   - isPublic: boolean (optional)
+    //
+    // Collection: profiles
+    // Document ID: {profileId}
+    // Fields:
+    //   - id: string (required, immutable)
+    //   - title: string (required)
+    //   - description: string (required)
+    //   - authorId: string (required, immutable)
+    //   - createdAt: number (required, immutable)
+    //
+    // Collection: customBlocks
+    // Document ID: {blockId}
+    // Fields:
+    //   - id: string (required, immutable)
+    //   - categoryId: string (required)
+    //   - label: string (required)
+    //   - value: string (required)
+    //   - title: string (required)
+    //   - promptText: string (required)
+    //   - isNsfw: boolean (required)
+    //   - authorId: string (required, immutable)
+    //
+    // Collection: customCategories
+    // Document ID: {categoryId}
+    // Fields:
+    //   - id: string (required, immutable)
+    //   - name: string (required)
+    //   - icon: string (optional)
+    //   - color: string (optional)
+    //   - authorId: string (required, immutable)
+    //
+    // Collection: news
+    // Document ID: {newsId}
+    // Fields:
+    //   - id: string (required, immutable)
+    //   - title: string (required)
+    //   - content: string (required)
+    //   - date: number (required)
+    //   - isPublished: boolean (required)
+    //   - type: string (optional) - 'update', 'feature', 'announcement'
+    //   - authorId: string (optional, immutable)
+    //
+    // Collection: coworkingTopics
+    // Document ID: {topicId}
+    // Fields:
+    //   - id: string (required, immutable)
+    //   - title: string (required)
+    //   - description: string (required)
+    //   - creatorId: string (required, immutable)
+    //   - members: list (required) - List of user UIDs
+    //   - createdAt: number (required, immutable)
+    //   - lastMessageAt: number (required)
+    //
+    // Collection: coworkingTopics/{topicId}/messages
+    // Document ID: {messageId}
+    // Fields:
+    //   - id: string (required, immutable)
+    //   - senderId: string (required, immutable)
+    //   - senderName: string (required)
+    //   - senderHashtag: string (required)
+    //   - content: string (required)
+    //   - timestamp: number (required, immutable)
+    //   - type: string (required) - 'text', 'file', 'image'
+    //   - fileUrl: string (optional)
+    //   - fileName: string (optional)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.authorId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
+          (request.auth.token.email == "wanted123455a@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function uidUnchanged() {
+      return !('uid' in request.resource.data) || request.resource.data.uid == request.auth.uid;
+    }
+
+    function uidNotModified() {
+      return !('uid' in request.resource.data) || request.resource.data.uid == resource.data.uid;
+    }
+
+    function authorIdUnchanged() {
+      return !('authorId' in request.resource.data) || request.resource.data.authorId == request.auth.uid;
+    }
+
+    function authorIdNotModified() {
+      return !('authorId' in request.resource.data) || request.resource.data.authorId == resource.data.authorId;
+    }
+
+    function creatorIdUnchanged() {
+      return !('creatorId' in request.resource.data) || request.resource.data.creatorId == request.auth.uid;
+    }
+
+    function senderIdUnchanged() {
+      return !('senderId' in request.resource.data) || request.resource.data.senderId == request.auth.uid;
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function isValidEmail(email) {
+      return email is string &&
+        email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidOptionalString(field, minLen, maxLen) {
+      return !(field in request.resource.data) ||
+             (request.resource.data[field] is string &&
+              request.resource.data[field].size() >= minLen &&
+              request.resource.data[field].size() <= maxLen);
+    }
+
+    function areImmutableFieldsUnchanged(fields) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data) {
+      return hasRequiredFields(['uid', 'email', 'hashtag', 'isAdmin', 'freePromptsUsed', 'isSubscribed', 'subscriptionTier', 'createdAt']) &&
+             data.uid is string && data.uid.size() > 0 && data.uid.size() < 128 &&
+             isValidEmail(data.email) &&
+             data.hashtag is string && data.hashtag.size() == 4 &&
+             data.isAdmin is bool &&
+             data.freePromptsUsed is number &&
+             data.isSubscribed is bool &&
+             data.subscriptionTier in ['free', 'pro', 'elite'] &&
+             data.createdAt is timestamp &&
+             isValidOptionalString('displayName', 0, 100) &&
+             isValidOptionalString('photoURL', 0, 1000);
+    }
+
+    function isValidPromptSession(data) {
+      return hasRequiredFields(['id', 'date', 'mode', 'selectedBlocks', 'customInstructions', 'compiledPrompt', 'isFavorite']) &&
+             data.id is string && data.id.size() > 0 && data.id.size() < 128 &&
+             data.date is number &&
+             data.mode is string && data.mode.size() > 0 && data.mode.size() < 50 &&
+             (data.selectedBlocks is string || data.selectedBlocks is list) &&
+             data.customInstructions is list && data.customInstructions.size() <= 100 &&
+             data.compiledPrompt is string && data.compiledPrompt.size() < 50000 &&
+             data.isFavorite is bool &&
+             isValidOptionalString('title', 0, 200) &&
+             isValidOptionalString('authorId', 0, 128) &&
+             isValidOptionalString('authorName', 0, 100);
+    }
+
+    function isValidCharacterProfile(data) {
+      return hasRequiredFields(['id', 'title', 'description', 'authorId', 'createdAt']) &&
+             data.id is string && data.id.size() > 0 && data.id.size() < 128 &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 100 &&
+             data.description is string && data.description.size() > 0 && data.description.size() < 10000 &&
+             data.authorId is string && data.authorId.size() > 0 && data.authorId.size() < 128 &&
+             data.createdAt is number;
+    }
+
+    function isValidCustomBlock(data) {
+      return hasRequiredFields(['id', 'categoryId', 'label', 'value', 'title', 'promptText', 'isNsfw', 'authorId']) &&
+             data.id is string && data.id.size() > 0 && data.id.size() < 128 &&
+             data.categoryId is string &&
+             data.label is string && data.label.size() > 0 && data.label.size() < 100 &&
+             data.value is string &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 100 &&
+             data.promptText is string &&
+             data.isNsfw is bool &&
+             data.authorId is string && data.authorId.size() > 0 && data.authorId.size() < 128;
+    }
+
+    function isValidCustomCategory(data) {
+      return hasRequiredFields(['id', 'name', 'authorId']) &&
+             data.id is string && data.id.size() > 0 && data.id.size() < 128 &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.authorId is string && data.authorId.size() > 0 && data.authorId.size() < 128 &&
+             isValidOptionalString('icon', 0, 50) &&
+             isValidOptionalString('color', 0, 50);
+    }
+
+    function isValidNewsItem(data) {
+      return hasRequiredFields(['id', 'title', 'content', 'date', 'isPublished', 'authorId']) &&
+             data.id is string && data.id.size() > 0 && data.id.size() < 128 &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             data.content is string && data.content.size() > 0 && data.content.size() < 20000 &&
+             data.date is number &&
+             data.isPublished is bool &&
+             data.authorId is string;
+    }
+
+    function isValidCoworkingTopic(data) {
+      return hasRequiredFields(['id', 'title', 'description', 'creatorId', 'members', 'createdAt', 'lastMessageAt']) &&
+             data.id is string && data.id.size() > 0 && data.id.size() < 128 &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             data.description is string && data.description.size() > 0 && data.description.size() < 1000 &&
+             data.creatorId is string && data.creatorId.size() > 0 && data.creatorId.size() < 128 &&
+             data.members is list && data.members.size() <= 100 &&
+             data.createdAt is number &&
+             data.lastMessageAt is number;
+    }
+
+    function isValidCoworkingMessage(data) {
+      return hasRequiredFields(['id', 'senderId', 'senderName', 'senderHashtag', 'content', 'timestamp', 'type']) &&
+             data.id is string && data.id.size() > 0 && data.id.size() < 128 &&
+             data.senderId is string && data.senderId.size() > 0 && data.senderId.size() < 128 &&
+             data.senderName is string && data.senderName.size() > 0 && data.senderName.size() < 100 &&
+             data.senderHashtag is string && data.senderHashtag.size() == 4 &&
+             data.content is string && data.content.size() > 0 && data.content.size() < 5000 &&
+             data.timestamp is number &&
+             data.type in ['text', 'file', 'image'];
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isAuthenticated(); // Allow reading other users for mentions/hashtags
+      allow create: if isAuthenticated() && isValidUser(request.resource.data) && 
+                    ((isOwner(userId) && request.resource.data.isAdmin == false) || isAdmin()) &&
+                    uidUnchanged();
+      allow update: if isAuthenticated() && isValidUser(request.resource.data) && 
+                    ((isOwner(userId) && request.resource.data.isAdmin == resource.data.isAdmin) || isAdmin()) &&
+                    uidNotModified() && areImmutableFieldsUnchanged(['createdAt']);
+      allow delete: if isAdmin();
+    }
+
+    match /prompts/{promptId} {
+      allow read: if isAuthenticated(); // Community feed
+      allow create: if isAuthenticated() && isValidPromptSession(request.resource.data) && authorIdUnchanged();
+      allow update: if isAuthenticated() && isValidPromptSession(request.resource.data) && 
+                    (isDocOwner() || isAdmin()) && authorIdNotModified() && areImmutableFieldsUnchanged(['id']);
+      allow delete: if isAuthenticated() && (isDocOwner() || isAdmin());
+    }
+
+    match /profiles/{profileId} {
+      allow read: if isAuthenticated() && (isDocOwner() || isAdmin());
+      allow create: if isAuthenticated() && isValidCharacterProfile(request.resource.data) && authorIdUnchanged();
+      allow update: if isAuthenticated() && isValidCharacterProfile(request.resource.data) && 
+                    (isDocOwner() || isAdmin()) && authorIdNotModified() && areImmutableFieldsUnchanged(['id', 'createdAt']);
+      allow delete: if isAuthenticated() && (isDocOwner() || isAdmin());
+    }
+
+    match /customBlocks/{blockId} {
+      allow read: if isAuthenticated() && (isDocOwner() || isAdmin());
+      allow create: if isAuthenticated() && isValidCustomBlock(request.resource.data) && authorIdUnchanged();
+      allow update: if isAuthenticated() && isValidCustomBlock(request.resource.data) && 
+                    (isDocOwner() || isAdmin()) && authorIdNotModified() && areImmutableFieldsUnchanged(['id']);
+      allow delete: if isAuthenticated() && (isDocOwner() || isAdmin());
+    }
+
+    match /customCategories/{categoryId} {
+      allow read: if isAuthenticated() && (isDocOwner() || isAdmin());
+      allow create: if isAuthenticated() && isValidCustomCategory(request.resource.data) && authorIdUnchanged();
+      allow update: if isAuthenticated() && isValidCustomCategory(request.resource.data) && 
+                    (isDocOwner() || isAdmin()) && authorIdNotModified() && areImmutableFieldsUnchanged(['id']);
+      allow delete: if isAuthenticated() && (isDocOwner() || isAdmin());
+    }
+
+    match /news/{newsId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidNewsItem(request.resource.data);
+      allow update: if isAdmin() && isValidNewsItem(request.resource.data) && areImmutableFieldsUnchanged(['id']);
+      allow delete: if isAdmin();
+    }
+
+    match /coworkingTopics/{topicId} {
+      allow read: if isAuthenticated() && (request.auth.uid in resource.data.members || isAdmin());
+      allow create: if isAuthenticated() && isValidCoworkingTopic(request.resource.data) && creatorIdUnchanged();
+      allow update: if isAuthenticated() && isValidCoworkingTopic(request.resource.data) && 
+                    (request.auth.uid in resource.data.members || isAdmin()) && areImmutableFieldsUnchanged(['id', 'creatorId', 'createdAt']);
+      allow delete: if isAuthenticated() && (request.auth.uid == resource.data.creatorId || isAdmin());
+
+      match /messages/{messageId} {
+        allow read: if isAuthenticated() && (request.auth.uid in get(/databases/$(database)/documents/coworkingTopics/$(topicId)).data.members || isAdmin());
+        allow create: if isAuthenticated() && isValidCoworkingMessage(request.resource.data) && senderIdUnchanged() &&
+                      (request.auth.uid in get(/databases/$(database)/documents/coworkingTopics/$(topicId)).data.members || isAdmin());
+        allow update: if false; // Messages are immutable
+        allow delete: if isAuthenticated() && (request.auth.uid == resource.data.senderId || isAdmin());
+      }
+    }
+  }
+}

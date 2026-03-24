@@ -1,0 +1,271 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "A user of the application",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Firebase Auth UID"
+        },
+        "email": {
+          "type": "string",
+          "format": "email"
+        },
+        "displayName": {
+          "type": "string"
+        },
+        "hashtag": {
+          "type": "string",
+          "description": "4-character unique identifier"
+        },
+        "photoURL": {
+          "type": "string"
+        },
+        "isAdmin": {
+          "type": "boolean"
+        },
+        "freePromptsUsed": {
+          "type": "number"
+        },
+        "isSubscribed": {
+          "type": "boolean"
+        },
+        "subscriptionTier": {
+          "type": "string",
+          "enum": ["free", "pro", "elite"]
+        },
+        "subscriptionExpiry": {
+          "type": "number"
+        },
+        "createdAt": {
+          "type": "timestamp"
+        }
+      },
+      "required": ["uid", "email", "hashtag", "isAdmin", "freePromptsUsed", "isSubscribed", "subscriptionTier", "createdAt"]
+    },
+    "PromptSession": {
+      "title": "PromptSession",
+      "description": "A saved prompt session",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "date": {
+          "type": "number"
+        },
+        "mode": {
+          "type": "string"
+        },
+        "selectedBlocks": {
+          "type": "string",
+          "description": "JSON stringified array of blocks"
+        },
+        "customInstructions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "compiledPrompt": {
+          "type": "string"
+        },
+        "isFavorite": {
+          "type": "boolean"
+        },
+        "likes": {
+          "type": "number"
+        },
+        "authorId": {
+          "type": "string"
+        },
+        "authorName": {
+          "type": "string"
+        },
+        "isPublic": {
+          "type": "boolean"
+        }
+      },
+      "required": ["id", "date", "mode", "selectedBlocks", "customInstructions", "compiledPrompt", "isFavorite"]
+    },
+    "CharacterProfile": {
+      "title": "CharacterProfile",
+      "description": "A saved character profile",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "authorId": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "number"
+        }
+      },
+      "required": ["id", "title", "description", "authorId", "createdAt"]
+    },
+    "CustomBlock": {
+      "title": "CustomBlock",
+      "description": "A user-created custom block",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "categoryId": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "promptText": {
+          "type": "string"
+        },
+        "isNsfw": {
+          "type": "boolean"
+        },
+        "authorId": {
+          "type": "string"
+        }
+      },
+      "required": ["id", "categoryId", "label", "value", "title", "promptText", "isNsfw", "authorId"]
+    },
+    "CustomCategory": {
+      "title": "CustomCategory",
+      "description": "A user-created custom category",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "icon": {
+          "type": "string"
+        },
+        "color": {
+          "type": "string"
+        },
+        "authorId": {
+          "type": "string"
+        }
+      },
+      "required": ["id", "name", "icon", "color", "authorId"]
+    },
+    "NewsItem": {
+      "title": "NewsItem",
+      "description": "A news item or update",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "content": {
+          "type": "string"
+        },
+        "date": {
+          "type": "number"
+        },
+        "isPublished": {
+          "type": "boolean"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["update", "feature", "announcement"]
+        },
+        "authorId": {
+          "type": "string"
+        }
+      },
+      "required": ["id", "title", "content", "date", "isPublished", "authorId"]
+    },
+    "CoworkingTopic": {
+      "title": "CoworkingTopic",
+      "description": "A collaborative topic",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "creatorId": { "type": "string" },
+        "members": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "number" },
+        "lastMessageAt": { "type": "number" }
+      },
+      "required": ["id", "title", "description", "creatorId", "members", "createdAt", "lastMessageAt"]
+    },
+    "CoworkingMessage": {
+      "title": "CoworkingMessage",
+      "description": "A message in a coworking topic",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "senderHashtag": { "type": "string" },
+        "content": { "type": "string" },
+        "timestamp": { "type": "number" },
+        "type": { "type": "string", "enum": ["text", "file", "image"] },
+        "fileUrl": { "type": "string" },
+        "fileName": { "type": "string" }
+      },
+      "required": ["id", "senderId", "senderName", "senderHashtag", "content", "timestamp", "type"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profiles"
+    },
+    "prompts/{promptId}": {
+      "schema": { "$ref": "#/entities/PromptSession" },
+      "description": "Saved prompts (both private and public)"
+    },
+    "profiles/{profileId}": {
+      "schema": { "$ref": "#/entities/CharacterProfile" },
+      "description": "Saved character profiles"
+    },
+    "customBlocks/{blockId}": {
+      "schema": { "$ref": "#/entities/CustomBlock" },
+      "description": "User custom blocks"
+    },
+    "customCategories/{categoryId}": {
+      "schema": { "$ref": "#/entities/CustomCategory" },
+      "description": "User custom categories"
+    },
+    "news/{newsId}": {
+      "schema": { "$ref": "#/entities/NewsItem" },
+      "description": "Platform news and updates"
+    },
+    "coworkingTopics/{topicId}": {
+      "schema": { "$ref": "#/entities/CoworkingTopic" },
+      "description": "Coworking topics"
+    },
+    "coworkingTopics/{topicId}/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/CoworkingMessage" },
+      "description": "Messages within a coworking topic"
+    }
+  }
+}

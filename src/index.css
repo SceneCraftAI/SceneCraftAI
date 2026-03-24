@@ -1,0 +1,88 @@
+@import "tailwindcss";
+
+@theme {
+  --color-emerald-300: var(--accent-300);
+  --color-emerald-400: var(--accent-400);
+  --color-emerald-500: var(--accent-500);
+  --color-emerald-600: var(--accent-600);
+}
+
+:root {
+  --accent-300: #6ee7b7;
+  --accent-400: #34d399;
+  --accent-500: #10b981;
+  --accent-600: #059669;
+}
+
+html[data-color="blue"] {
+  --accent-300: #93c5fd;
+  --accent-400: #60a5fa;
+  --accent-500: #3b82f6;
+  --accent-600: #2563eb;
+}
+
+html[data-color="purple"] {
+  --accent-300: #d8b4fe;
+  --accent-400: #c084fc;
+  --accent-500: #a855f7;
+  --accent-600: #9333ea;
+}
+
+html[data-color="rose"] {
+  --accent-300: #fda4af;
+  --accent-400: #fb7185;
+  --accent-500: #f43f5e;
+  --accent-600: #e11d48;
+}
+
+html[data-color="amber"] {
+  --accent-300: #fcd34d;
+  --accent-400: #fbbf24;
+  --accent-500: #f59e0b;
+  --accent-600: #d97706;
+}
+
+html[data-theme="light"] {
+  filter: invert(1) hue-rotate(180deg);
+}
+
+html[data-theme="light"] img,
+html[data-theme="light"] video,
+html[data-theme="light"] .keep-colors {
+  filter: invert(1) hue-rotate(180deg);
+}
+
+/* Glassmorphism Style */
+html[data-style="glass"] body {
+  background: linear-gradient(135deg, #0f172a 0%, #312e81 100%);
+}
+html[data-style="glass"] .bg-zinc-900,
+html[data-style="glass"] .bg-zinc-950,
+html[data-style="glass"] .bg-black\/30,
+html[data-style="glass"] .bg-\[\#0F0F0F\] {
+  background: rgba(15, 15, 15, 0.4) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Brutalist Style */
+html[data-style="brutalist"] body {
+  background-color: #000;
+  font-family: 'JetBrains Mono', monospace;
+}
+html[data-style="brutalist"] * {
+  border-radius: 0 !important;
+}
+html[data-style="brutalist"] .border,
+html[data-style="brutalist"] .border-t,
+html[data-style="brutalist"] .border-b,
+html[data-style="brutalist"] .border-l,
+html[data-style="brutalist"] .border-r {
+  border-color: #fff !important;
+  border-width: 2px !important;
+}
+html[data-style="brutalist"] button {
+  text-transform: uppercase;
+  font-weight: bold;
+}
