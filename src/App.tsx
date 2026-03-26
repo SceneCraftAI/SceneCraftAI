@@ -113,6 +113,25 @@ export default function App() {
   const [newNewsContent, setNewNewsContent] = useState('');
   const [inviteInput, setInviteInput] = useState('');
 
+  // New Modals State
+  const [showAddPromptModal, setShowAddPromptModal] = useState(false);
+  const [newPromptTitle, setNewPromptTitle] = useState('');
+  const [newPromptContent, setNewPromptContent] = useState('');
+  const [showCategoryManager, setShowCategoryManager] = useState(false);
+  const [confirmModal, setConfirmModal] = useState<{
+    show: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    type: 'danger' | 'warning' | 'info';
+  }>({
+    show: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+    type: 'info'
+  });
+
   // Admin State
   const [adminTab, setAdminTab] = useState<'users' | 'news' | 'subs' | 'content'>('users');
   const [allUsers, setAllUsers] = useState<User[]>([]);
@@ -319,17 +338,39 @@ export default function App() {
     localStorage.setItem('local_savedPrompts', JSON.stringify(savedPrompts));
   }, [savedPrompts]);
 
-  const handleSaveCurrentPrompt = () => {
-    if (!compiledPrompt) return;
+  const handleOpenAddPromptModal = () => {
+    setNewPromptTitle(`Prompt ${savedPrompts.length + 1}`);
+    setNewPromptContent(compiledPrompt || '');
+    setShowAddPromptModal(true);
+  };
+
+  const handleAddPrompt = () => {
+    if (!newPromptTitle.trim() || !newPromptContent.trim()) return;
     const id = `saved_prompt_${Date.now()}`;
     const newPrompt: SavedPrompt = {
       id,
-      title: `Prompt ${savedPrompts.length + 1}`,
-      prompt: compiledPrompt,
+      title: newPromptTitle,
+      prompt: newPromptContent,
       authorId: currentUser?.uid || 'local_user',
       createdAt: Date.now()
     };
     setSavedPrompts(prev => [newPrompt, ...prev]);
+    setShowAddPromptModal(false);
+    setNewPromptTitle('');
+    setNewPromptContent('');
+  };
+
+  const showConfirm = (title: string, message: string, onConfirm: () => void, type: 'danger' | 'warning' | 'info' = 'danger') => {
+    setConfirmModal({
+      show: true,
+      title,
+      message,
+      onConfirm: () => {
+        onConfirm();
+        setConfirmModal(prev => ({ ...prev, show: false }));
+      },
+      type
+    });
   };
 
   // Sorting & Filtering State
@@ -1332,37 +1373,46 @@ export default function App() {
                   <div className="mt-4 pt-4 border-t border-white/5">
                     <div className="flex items-center justify-between mb-2 px-2">
                       <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Mis Categorías</h2>
-                      <button 
-                        onClick={async () => {
-                          const id = `custom_cat_${Date.now()}`;
-                          const newCat: CustomCategory = { id, name: 'Nueva Categoría', icon: 'Folder', color: 'emerald', authorId: currentUser?.uid || 'local_user', parentId: null };
-                          
-                          if (currentUser) {
-                            try {
-                              await setDoc(doc(db, 'customCategories', id), newCat);
-                            } catch (error) {
-                              handleFirestoreError(error, OperationType.CREATE, `customCategories/${id}`);
+                      <div className="flex items-center gap-2">
+                        <button 
+                          onClick={() => setShowCategoryManager(true)}
+                          className="text-zinc-400 hover:text-emerald-400"
+                          title="Gestionar categorías"
+                        >
+                          <Icons.Settings2 size={14} />
+                        </button>
+                        <button 
+                          onClick={async () => {
+                            const id = `custom_cat_${Date.now()}`;
+                            const newCat: CustomCategory = { id, name: 'Nueva Categoría', icon: 'Folder', color: 'emerald', authorId: currentUser?.uid || 'local_user', parentId: null };
+                            
+                            if (currentUser) {
+                              try {
+                                await setDoc(doc(db, 'customCategories', id), newCat);
+                              } catch (error) {
+                                handleFirestoreError(error, OperationType.CREATE, `customCategories/${id}`);
+                              }
+                            } else {
+                              setCustomCategories(prev => {
+                                const updated = [...prev, newCat];
+                                localStorage.setItem('local_customCategories', JSON.stringify(updated));
+                                return updated;
+                              });
                             }
-                          } else {
-                            setCustomCategories(prev => {
-                              const updated = [...prev, newCat];
-                              localStorage.setItem('local_customCategories', JSON.stringify(updated));
-                              return updated;
-                            });
-                          }
-                          setActiveCategory(id);
-                        }}
-                        className="text-zinc-400 hover:text-emerald-400"
-                      >
-                        <Icons.Plus size={14} />
-                      </button>
+                            setActiveCategory(id);
+                          }}
+                          className="text-zinc-400 hover:text-emerald-400"
+                        >
+                          <Icons.Plus size={14} />
+                        </button>
+                      </div>
                     </div>
                     {/* My Prompts Section */}
                     <div className="mt-4 pt-4 border-t border-white/5">
                       <div className="flex items-center justify-between mb-2 px-2">
                         <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Mis Prompts</h2>
                         <button 
-                          onClick={handleSaveCurrentPrompt}
+                          onClick={handleOpenAddPromptModal}
                           className="text-zinc-400 hover:text-emerald-400"
                           title="Guardar prompt actual"
                         >
@@ -1392,7 +1442,11 @@ export default function App() {
                               </div>
                             </button>
                             <button 
-                              onClick={() => setSavedPrompts(prev => prev.filter(item => item.id !== p.id))}
+                              onClick={() => showConfirm(
+                                'Eliminar Prompt',
+                                `¿Estás seguro de que quieres eliminar "${p.title}"? Esta acción no se puede deshacer.`,
+                                () => setSavedPrompts(prev => prev.filter(item => item.id !== p.id))
+                              )}
                               className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-zinc-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
                             >
                               <Icons.Trash2 size={12} />
@@ -1445,32 +1499,36 @@ export default function App() {
                       className="bg-transparent text-sm font-medium text-white focus:outline-none border-b border-transparent focus:border-emerald-500/50"
                     />
                     <button 
-                      onClick={async () => {
-                        if (currentUser) {
-                          try {
-                            await deleteDoc(doc(db, 'customCategories', activeCategory));
-                            // Also delete associated blocks
-                            const blocksToDelete = customBlocks.filter(b => b.categoryId === activeCategory);
-                            for (const block of blocksToDelete) {
-                              await deleteDoc(doc(db, 'customBlocks', block.id));
+                      onClick={() => showConfirm(
+                        'Eliminar Categoría',
+                        `¿Estás seguro de que quieres eliminar la categoría "${customCategories.find(c => c.id === activeCategory)?.name}"? Todos los bloques dentro de ella también se eliminarán.`,
+                        async () => {
+                          if (currentUser) {
+                            try {
+                              await deleteDoc(doc(db, 'customCategories', activeCategory));
+                              // Also delete associated blocks
+                              const blocksToDelete = customBlocks.filter(b => b.categoryId === activeCategory);
+                              for (const block of blocksToDelete) {
+                                await deleteDoc(doc(db, 'customBlocks', block.id));
+                              }
+                            } catch (error) {
+                              handleFirestoreError(error, OperationType.DELETE, `customCategories/${activeCategory}`);
                             }
-                          } catch (error) {
-                            handleFirestoreError(error, OperationType.DELETE, `customCategories/${activeCategory}`);
+                          } else {
+                            setCustomCategories(prev => {
+                              const updated = prev.filter(c => c.id !== activeCategory);
+                              localStorage.setItem('local_customCategories', JSON.stringify(updated));
+                              return updated;
+                            });
+                            setCustomBlocks(prev => {
+                              const updated = prev.filter(b => b.categoryId !== activeCategory);
+                              localStorage.setItem('local_customBlocks', JSON.stringify(updated));
+                              return updated;
+                            });
                           }
-                        } else {
-                          setCustomCategories(prev => {
-                            const updated = prev.filter(c => c.id !== activeCategory);
-                            localStorage.setItem('local_customCategories', JSON.stringify(updated));
-                            return updated;
-                          });
-                          setCustomBlocks(prev => {
-                            const updated = prev.filter(b => b.categoryId !== activeCategory);
-                            localStorage.setItem('local_customBlocks', JSON.stringify(updated));
-                            return updated;
-                          });
+                          setActiveCategory(ALL_CATEGORIES[0].id);
                         }
-                        setActiveCategory(ALL_CATEGORIES[0].id);
-                      }}
+                      )}
                       className="text-red-500/50 hover:text-red-400 p-1 rounded hover:bg-red-500/10 transition-colors"
                       title="Eliminar Categoría"
                     >
@@ -4963,6 +5021,262 @@ export default function App() {
           background: #3f3f46;
         }
       `}} />
+      {/* Add Prompt Modal */}
+      <AnimatePresence>
+        {showAddPromptModal && (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[300] flex items-center justify-center p-4"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="bg-[#141414] border border-white/10 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl"
+            >
+              <div className="p-6 border-b border-white/5">
+                <h2 className="text-lg font-bold text-white">Añadir Nuevo Prompt</h2>
+                <p className="text-xs text-zinc-500 uppercase tracking-widest font-bold mt-1">Guarda tus mejores creaciones</p>
+              </div>
+              <div className="p-6 space-y-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Título</label>
+                  <input 
+                    type="text"
+                    value={newPromptTitle}
+                    onChange={(e) => setNewPromptTitle(e.target.value)}
+                    placeholder="Ej: Retrato Cyberpunk"
+                    className="w-full bg-zinc-900 border border-white/5 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500/50 transition-colors"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Contenido del Prompt</label>
+                  <textarea 
+                    value={newPromptContent}
+                    onChange={(e) => setNewPromptContent(e.target.value)}
+                    placeholder="Escribe o pega tu prompt aquí..."
+                    rows={6}
+                    className="w-full bg-zinc-900 border border-white/5 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500/50 transition-colors resize-none custom-scrollbar"
+                  />
+                </div>
+              </div>
+              <div className="p-6 bg-zinc-900/50 border-t border-white/5 flex items-center justify-end gap-3">
+                <button 
+                  onClick={() => setShowAddPromptModal(false)}
+                  className="px-4 py-2 text-xs font-bold text-zinc-400 hover:text-white transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  onClick={handleAddPrompt}
+                  className="px-6 py-2 bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold rounded-xl transition-all"
+                >
+                  Añadir Prompt
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Category Manager Modal */}
+      <AnimatePresence>
+        {showCategoryManager && (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[300] flex items-center justify-center p-4"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="bg-[#141414] border border-white/10 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[80vh]"
+            >
+              <div className="p-6 border-b border-white/5 flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-bold text-white">Gestor de Categorías</h2>
+                  <p className="text-xs text-zinc-500 uppercase tracking-widest font-bold mt-1">Organiza tus bloques personalizados</p>
+                </div>
+                <button 
+                  onClick={() => setShowCategoryManager(false)}
+                  className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-all"
+                >
+                  <Icons.X size={20} />
+                </button>
+              </div>
+              <div className="flex-1 p-6 overflow-y-auto custom-scrollbar">
+                {customCategories.length === 0 ? (
+                  <div className="h-40 flex flex-col items-center justify-center text-zinc-600 gap-3">
+                    <Icons.FolderPlus size={32} className="opacity-20" />
+                    <p className="text-sm italic">No has creado categorías personalizadas aún.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {customCategories.map(cat => (
+                      <div key={cat.id} className="bg-zinc-900/50 border border-white/5 p-4 rounded-xl flex items-center justify-between group hover:border-emerald-500/30 transition-all">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-lg bg-${cat.color}-500/10 flex items-center justify-center text-${cat.color}-400`}>
+                            <Icons.Folder size={20} />
+                          </div>
+                          <div>
+                            <input 
+                              type="text"
+                              value={cat.name}
+                              onChange={async (e) => {
+                                const newName = e.target.value;
+                                if (currentUser) {
+                                  try {
+                                    await updateDoc(doc(db, 'customCategories', cat.id), { name: newName });
+                                  } catch (error) {
+                                    handleFirestoreError(error, OperationType.UPDATE, `customCategories/${cat.id}`);
+                                  }
+                                } else {
+                                  setCustomCategories(prev => {
+                                    const updated = prev.map(c => c.id === cat.id ? { ...c, name: newName } : c);
+                                    localStorage.setItem('local_customCategories', JSON.stringify(updated));
+                                    return updated;
+                                  });
+                                }
+                              }}
+                              className="bg-transparent text-sm font-medium text-white focus:outline-none border-b border-transparent focus:border-emerald-500/50 w-full"
+                            />
+                            <p className="text-[10px] text-zinc-500 mt-0.5">
+                              {customBlocks.filter(b => b.categoryId === cat.id).length} bloques
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button 
+                            onClick={() => {
+                              setActiveCategory(cat.id);
+                              setShowCategoryManager(false);
+                            }}
+                            className="p-2 text-zinc-500 hover:text-emerald-400 hover:bg-emerald-400/10 rounded-lg transition-all"
+                            title="Ver contenido"
+                          >
+                            <Icons.ExternalLink size={16} />
+                          </button>
+                          <button 
+                            onClick={() => showConfirm(
+                              'Eliminar Categoría',
+                              `¿Estás seguro de que quieres eliminar "${cat.name}"?`,
+                              async () => {
+                                if (currentUser) {
+                                  try {
+                                    await deleteDoc(doc(db, 'customCategories', cat.id));
+                                    const blocksToDelete = customBlocks.filter(b => b.categoryId === cat.id);
+                                    for (const block of blocksToDelete) {
+                                      await deleteDoc(doc(db, 'customBlocks', block.id));
+                                    }
+                                  } catch (error) {
+                                    handleFirestoreError(error, OperationType.DELETE, `customCategories/${cat.id}`);
+                                  }
+                                } else {
+                                  setCustomCategories(prev => {
+                                    const updated = prev.filter(c => c.id !== cat.id);
+                                    localStorage.setItem('local_customCategories', JSON.stringify(updated));
+                                    return updated;
+                                  });
+                                  setCustomBlocks(prev => {
+                                    const updated = prev.filter(b => b.categoryId !== cat.id);
+                                    localStorage.setItem('local_customBlocks', JSON.stringify(updated));
+                                    return updated;
+                                  });
+                                }
+                                if (activeCategory === cat.id) setActiveCategory(ALL_CATEGORIES[0].id);
+                              }
+                            )}
+                            className="p-2 text-zinc-500 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all"
+                            title="Eliminar"
+                          >
+                            <Icons.Trash2 size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="p-6 bg-zinc-900/50 border-t border-white/5 flex items-center justify-between">
+                <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">
+                  {customCategories.length} Categorías Totales
+                </p>
+                <button 
+                  onClick={async () => {
+                    const id = `custom_cat_${Date.now()}`;
+                    const newCat: CustomCategory = { id, name: 'Nueva Categoría', icon: 'Folder', color: 'emerald', authorId: currentUser?.uid || 'local_user', parentId: null };
+                    
+                    if (currentUser) {
+                      try {
+                        await setDoc(doc(db, 'customCategories', id), newCat);
+                      } catch (error) {
+                        handleFirestoreError(error, OperationType.CREATE, `customCategories/${id}`);
+                      }
+                    } else {
+                      setCustomCategories(prev => {
+                        const updated = [...prev, newCat];
+                        localStorage.setItem('local_customCategories', JSON.stringify(updated));
+                        return updated;
+                      });
+                    }
+                  }}
+                  className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold rounded-xl transition-all flex items-center gap-2"
+                >
+                  <Icons.Plus size={14} /> Nueva Categoría
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Confirmation Modal */}
+      <AnimatePresence>
+        {confirmModal.show && (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[400] flex items-center justify-center p-4"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="bg-[#141414] border border-white/10 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl"
+            >
+              <div className="p-6 text-center">
+                <div className={`w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center ${
+                  confirmModal.type === 'danger' ? 'bg-red-500/10 text-red-500' :
+                  confirmModal.type === 'warning' ? 'bg-amber-500/10 text-amber-500' :
+                  'bg-blue-500/10 text-blue-500'
+                }`}>
+                  <Icons.AlertTriangle size={32} />
+                </div>
+                <h2 className="text-lg font-bold text-white mb-2">{confirmModal.title}</h2>
+                <p className="text-sm text-zinc-400">{confirmModal.message}</p>
+              </div>
+              <div className="p-6 bg-zinc-900/50 border-t border-white/5 flex items-center gap-3">
+                <button 
+                  onClick={() => setConfirmModal(prev => ({ ...prev, show: false }))}
+                  className="flex-1 py-3 bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold rounded-xl transition-all"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  onClick={confirmModal.onConfirm}
+                  className={`flex-1 py-3 text-black text-xs font-bold rounded-xl transition-all ${
+                    confirmModal.type === 'danger' ? 'bg-red-500 hover:bg-red-400' :
+                    confirmModal.type === 'warning' ? 'bg-amber-500 hover:bg-amber-400' :
+                    'bg-emerald-500 hover:bg-emerald-400'
+                  }`}
+                >
+                  Confirmar
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Copy Toast */}
       <AnimatePresence>
         {copyToast.show && (
