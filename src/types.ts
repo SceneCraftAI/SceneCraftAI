@@ -61,7 +61,7 @@ export interface CustomBlock extends Block {
   authorId?: string;
 }
 
-export type WorkMode = 'prompting' | 'influencer' | 'recreation' | 'variations' | 'flow' | 'community' | 'product' | 'profiles' | 'admin' | 'profile' | 'coworking' | 'alquimia';
+export type WorkMode = 'prompting' | 'influencer' | 'recreation' | 'variations' | 'flow' | 'community' | 'admin' | 'coworking' | 'alquimia';
 
 export type Language = 'es' | 'en';
 

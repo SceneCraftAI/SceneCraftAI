@@ -89,12 +89,6 @@ export default function App() {
   const [originalRecreationPrompt, setOriginalRecreationPrompt] = useState<string | null>(null);
   const [isCleaningPrompt, setIsCleaningPrompt] = useState(false);
 
-  // Product Tab State
-  const [productDescription, setProductDescription] = useState('');
-  const [productUsage, setProductUsage] = useState('');
-  const [generatedProductPrompt, setGeneratedProductPrompt] = useState('');
-  const [isGeneratingProduct, setIsGeneratingProduct] = useState(false);
-
   // Community State
   const [communityFeed, setCommunityFeed] = useState([
     { id: '1', title: 'Cyberpunk Girl', prompt: 'cyberpunk aesthetic, neon lights, rainy street, 35mm lens', user: 'Mariano43', image: 'https://picsum.photos/seed/cyberpunk/100/100' },
@@ -191,8 +185,6 @@ export default function App() {
       'Recreación': 'Recreation',
       'Variaciones': 'Variations',
       'Prompting General': 'General Prompting',
-      'Perfil': 'Profile',
-      'Perfiles': 'Profiles',
       'Flow': 'Flow',
       'Feed': 'Feed',
       'Co-Working': 'Co-Working',
@@ -248,22 +240,6 @@ export default function App() {
   const activeCategories = workMode === 'influencer' ? INFLUENCER_CATEGORIES : GENERAL_CATEGORIES;
   const activeBlocks = workMode === 'influencer' ? INFLUENCER_BLOCKS : GENERAL_BLOCKS;
   const [saveStyleTitle, setSaveStyleTitle] = useState('');
-
-  // Profiles Tab State
-  const [profiles, setProfiles] = useState<any[]>([]);
-  const [subject1, setSubject1] = useState({ name: '', description: '', traits: '', style: '', attitude: '', image: '' });
-  const [subject2, setSubject2] = useState({ name: '', description: '', traits: '', style: '', attitude: '', image: '' });
-  const [interactionType, setInteractionType] = useState('coexistence');
-  const [visualStyle, setVisualStyle] = useState('cinematic');
-  const [blendIntensity, setBlendIntensity] = useState('medium');
-  const [generatedProfilePrompt, setGeneratedProfilePrompt] = useState('');
-  const [isGeneratingProfile, setIsGeneratingProfile] = useState(false);
-  const [showProfileModal, setShowProfileModal] = useState(false);
-  const [editingProfile, setEditingProfile] = useState<any>(null);
-
-  // Character Profiles (Perfil Tab) State
-  const [characterProfiles, setCharacterProfiles] = useState<{id: string; title: string; description: string; photoUrl: string}[]>([]);
-  const [newCharacterProfile, setNewCharacterProfile] = useState({ title: '', description: '', photoUrl: '' });
 
   // Smartphone Modal State
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
@@ -559,8 +535,6 @@ export default function App() {
 
   useEffect(() => {
     if (!currentUser) {
-      setProfiles([]);
-      setCharacterProfiles([]);
       
       // Load custom categories and blocks from localStorage if not logged in
       const localCategories = localStorage.getItem('local_customCategories');
@@ -579,22 +553,6 @@ export default function App() {
       return;
     }
 
-    // Load Profiles
-    const qProfiles = query(collection(db, 'profiles'), where('authorId', '==', currentUser.uid));
-    const unsubProfiles = onSnapshot(qProfiles, (snapshot) => {
-      const loaded: any[] = [];
-      snapshot.forEach(doc => loaded.push(doc.data()));
-      setProfiles(loaded);
-    }, (error) => handleFirestoreError(error, OperationType.LIST, 'profiles'));
-
-    // Load Character Profiles
-    const qCharProfiles = query(collection(db, 'characterProfiles'), where('authorId', '==', currentUser.uid));
-    const unsubCharProfiles = onSnapshot(qCharProfiles, (snapshot) => {
-      const loaded: any[] = [];
-      snapshot.forEach(doc => loaded.push(doc.data()));
-      setCharacterProfiles(loaded);
-    }, (error) => handleFirestoreError(error, OperationType.LIST, 'characterProfiles'));
-
     // Load Custom Blocks
     const qCustomBlocks = query(collection(db, 'customBlocks'), where('authorId', '==', currentUser.uid));
     const unsubCustomBlocks = onSnapshot(qCustomBlocks, (snapshot) => {
@@ -612,8 +570,6 @@ export default function App() {
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'customCategories'));
 
     return () => {
-      unsubProfiles();
-      unsubCharProfiles();
       unsubCustomBlocks();
       unsubCustomCategories();
     };
@@ -771,7 +727,6 @@ export default function App() {
       if (e.ctrlKey || e.metaKey) {
         if (e.key === '1') { setWorkMode('influencer'); setActiveTabGroup('tools'); }
         if (e.key === '2') { setWorkMode('prompting'); setActiveTabGroup('tools'); }
-        if (e.key === '3') { setWorkMode('product'); setActiveTabGroup('workspace'); }
         if (e.key === '4') { setWorkMode('community'); setActiveTabGroup('community'); }
         if (e.key === 's') { e.preventDefault(); setShowSaveHistoryModal(true); }
         if (e.key === 'z') { 
@@ -1146,7 +1101,7 @@ export default function App() {
   return (
     <div className={`h-screen text-zinc-200 flex flex-col overflow-hidden ${uiStyle === 'glass' ? 'bg-transparent' : 'bg-[#0A0A0A]'} ${uiStyle === 'brutalist' ? 'font-mono' : 'font-sans'}`}>
       {/* Header */}
-      <header className="border-b border-white/10 bg-[#0A0A0A]/95 backdrop-blur-xl flex flex-col sticky top-0 z-50 overflow-hidden">
+      <header className="border-b border-white/10 bg-[#0A0A0A]/95 backdrop-blur-xl flex flex-col sticky top-0 z-[100]">
         {/* Row 1: Logo and Actions */}
         <div className="flex items-center justify-between px-4 py-2 border-b border-white/5 md:border-none">
           <div className="flex items-center gap-3">
@@ -1194,7 +1149,7 @@ export default function App() {
                     initial={{ opacity: 0, y: 10, scale: 0.95 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                    className="absolute top-full right-0 mt-2 w-48 bg-zinc-900 border border-white/10 rounded-xl shadow-2xl overflow-hidden z-[70]"
+                    className="absolute top-full right-0 mt-2 w-48 bg-zinc-900 border border-white/10 rounded-xl shadow-2xl overflow-hidden z-[110]"
                   >
                     <div className="p-2 flex flex-col gap-1">
                       <button 
@@ -1259,12 +1214,8 @@ export default function App() {
                 <button onClick={() => setWorkMode('prompting')} className={`px-3 py-1 text-[10px] md:text-xs font-semibold rounded-md transition-colors shrink-0 ${workMode === 'prompting' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'text-zinc-400 hover:text-blue-300'}`}>{t('Prompting General')}</button>
                 <button onClick={() => setWorkMode('recreation')} className={`px-3 py-1 text-[10px] md:text-xs font-semibold rounded-md transition-colors shrink-0 ${workMode === 'recreation' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'text-zinc-400 hover:text-blue-300'}`}>{t('Recreación')}</button>
                 <button onClick={() => setWorkMode('variations')} className={`px-3 py-1 text-[10px] md:text-xs font-semibold rounded-md transition-colors shrink-0 ${workMode === 'variations' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'text-zinc-400 hover:text-blue-300'}`}>{t('Variaciones')}</button>
-                <button onClick={() => setWorkMode('profile')} className={`px-3 py-1 text-[10px] md:text-xs font-semibold rounded-md transition-colors shrink-0 ${workMode === 'profile' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'text-zinc-400 hover:text-blue-300'}`}>{t('Perfil de personaje')}</button>
                 <button onClick={() => setWorkMode('flow')} className={`px-3 py-1 text-[10px] md:text-xs font-semibold rounded-md transition-colors shrink-0 ${workMode === 'flow' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'text-zinc-400 hover:text-blue-300'}`}>{t('Flow')}</button>
                 <button onClick={() => setWorkMode('alquimia')} className={`px-3 py-1 text-[10px] md:text-xs font-semibold rounded-md transition-colors shrink-0 ${workMode === 'alquimia' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'text-zinc-400 hover:text-blue-300'}`}>{t('Alquimia')}</button>
-                <div className="w-px h-4 bg-white/10 mx-1" />
-                <button onClick={() => setWorkMode('product')} className={`px-3 py-1 text-[10px] md:text-xs font-semibold rounded-md transition-colors shrink-0 ${workMode === 'product' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' : 'text-zinc-400 hover:text-purple-300'}`}>Productos</button>
-                <button onClick={() => setWorkMode('profiles')} className={`px-3 py-1 text-[10px] md:text-xs font-semibold rounded-md transition-colors shrink-0 ${workMode === 'profiles' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' : 'text-zinc-400 hover:text-purple-300'}`}>{t('Perfiles')}</button>
               </>
             )}
             {activeTabGroup === 'community' && (
@@ -1331,25 +1282,12 @@ export default function App() {
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   onClick={() => setShowLeftSidebar(false)}
-                  className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden"
+                  className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[140] md:hidden"
                 />
               )}
             </AnimatePresence>
 
-        {/* Mobile Backdrop for Left Sidebar */}
-        <AnimatePresence>
-          {showLeftSidebar && (
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowLeftSidebar(false)}
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden"
-            />
-          )}
-        </AnimatePresence>
-            
-            <aside className={`${showLeftSidebar ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 transition-transform duration-300 fixed md:relative left-0 top-0 bottom-0 w-80 border-r border-white/10 flex flex-col bg-[#0F0F0F] shrink-0 z-50 h-full`}>
+            <aside className={`${showLeftSidebar ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 transition-transform duration-300 fixed md:relative left-0 top-0 bottom-0 w-80 border-r border-white/10 flex flex-col bg-[#0F0F0F] shrink-0 z-[150] md:z-40 h-full`}>
               {/* Mobile Close Button */}
               <div className="md:hidden p-4 border-b border-white/10 flex items-center justify-between">
                 <span className="text-sm font-bold text-white">Categorías</span>
@@ -2286,130 +2224,6 @@ export default function App() {
             </div>
           )}
 
-          {workMode === 'profile' && (
-            <div className="flex-1 p-6 flex flex-col overflow-y-auto custom-scrollbar">
-              <div className="w-full max-w-5xl mx-auto flex flex-col gap-6">
-                <div>
-                  <h2 className="text-2xl font-semibold text-white mb-2">{t('Perfil de Personaje')}</h2>
-                  <p className="text-zinc-400 text-sm">Crea perfiles de personajes para usarlos en tus escenas.</p>
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  {/* Form to create new profile */}
-                  <div className="lg:col-span-1 bg-zinc-900 border border-white/10 rounded-2xl p-6 h-fit">
-                    <h3 className="text-lg font-medium text-white mb-4">Nuevo Perfil</h3>
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-xs font-medium text-zinc-400 mb-1">Título / Nombre</label>
-                        <input
-                          type="text"
-                          value={newCharacterProfile.title}
-                          onChange={(e) => setNewCharacterProfile({ ...newCharacterProfile, title: e.target.value })}
-                          placeholder="Ej: Cyberpunk Hacker"
-                          className="w-full bg-black/30 border border-white/10 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-blue-500/50"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-zinc-400 mb-1">Descripción (Prompt)</label>
-                        <textarea
-                          value={newCharacterProfile.description}
-                          onChange={(e) => setNewCharacterProfile({ ...newCharacterProfile, description: e.target.value })}
-                          placeholder="Describe la apariencia, estilo, ropa..."
-                          rows={4}
-                          className="w-full bg-black/30 border border-white/10 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-blue-500/50 resize-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-zinc-400 mb-1">URL de la Foto</label>
-                        <input
-                          type="text"
-                          value={newCharacterProfile.photoUrl}
-                          onChange={(e) => setNewCharacterProfile({ ...newCharacterProfile, photoUrl: e.target.value })}
-                          placeholder="https://..."
-                          className="w-full bg-black/30 border border-white/10 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-blue-500/50"
-                        />
-                      </div>
-                      <button
-                        onClick={async () => {
-                          if (!newCharacterProfile.title || !newCharacterProfile.description || !currentUser) return;
-                          const newProfile = { ...newCharacterProfile, id: Date.now().toString(), authorId: currentUser.uid, createdAt: Date.now() };
-                          try {
-                            await setDoc(doc(db, 'characterProfiles', newProfile.id), newProfile);
-                            setNewCharacterProfile({ title: '', description: '', photoUrl: '' });
-                          } catch (error) {
-                            handleFirestoreError(error, OperationType.CREATE, `characterProfiles/${newProfile.id}`);
-                          }
-                        }}
-                        disabled={!newCharacterProfile.title || !newCharacterProfile.description}
-                        className="w-full py-2.5 rounded-lg text-sm font-medium bg-blue-500 text-white hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                      >
-                        <Icons.Save size={16} />
-                        Guardar Perfil
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Grid of saved profiles */}
-                  <div className="lg:col-span-2">
-                    {characterProfiles.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center py-20 text-zinc-600 border border-dashed border-white/10 rounded-2xl">
-                        <Icons.User size={48} className="mb-4 opacity-20" />
-                        <p>No has creado ningún perfil aún</p>
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {characterProfiles.map(profile => (
-                          <div key={profile.id} className="bg-zinc-900 border border-white/10 rounded-2xl overflow-hidden flex flex-col group">
-                            {profile.photoUrl ? (
-                              <div className="h-48 w-full overflow-hidden bg-black/50">
-                                <img src={profile.photoUrl} alt={profile.title} referrerPolicy="no-referrer" className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
-                              </div>
-                            ) : (
-                              <div className="h-48 w-full bg-zinc-950 flex items-center justify-center text-zinc-800">
-                                <Icons.Image size={48} />
-                              </div>
-                            )}
-                            <div className="p-4 flex flex-col flex-1">
-                              <div className="flex items-start justify-between mb-2">
-                                <h4 className="font-bold text-white text-lg">{profile.title}</h4>
-                                <button
-                                  onClick={async () => {
-                                    try {
-                                      await deleteDoc(doc(db, 'characterProfiles', profile.id));
-                                    } catch (error) {
-                                      handleFirestoreError(error, OperationType.DELETE, `characterProfiles/${profile.id}`);
-                                    }
-                                  }}
-                                  className="p-1.5 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-colors"
-                                  title="Eliminar"
-                                >
-                                  <Icons.Trash2 size={14} />
-                                </button>
-                              </div>
-                              <p className="text-xs text-zinc-400 line-clamp-3 mb-4 flex-1">{profile.description}</p>
-                              <button
-                                onClick={() => {
-                                  // Export as topic to Scene Structure
-                                  setUndoStack(prev => [...prev, { blocks: selectedBlocks, instructions: customInstructions }]);
-                                  setCustomInstructions(prev => [...prev, `Perfil de personaje: ${profile.title}. ${profile.description}`]);
-                                  alert(`Perfil "${profile.title}" exportado a la Estructura de la Escena.`);
-                                }}
-                                className="w-full py-2 rounded-lg text-xs font-medium bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white transition-colors flex items-center justify-center gap-2"
-                              >
-                                <Icons.Share size={14} />
-                                Exportar a Escena
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
           {workMode === 'flow' && (
             <div className="flex-1 p-6 flex flex-col overflow-y-auto custom-scrollbar">
               <div className="w-full max-w-4xl mx-auto flex flex-col gap-6">
@@ -2568,107 +2382,6 @@ export default function App() {
                       ))}
                     </div>
                   </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {workMode === 'product' && (
-            <div className="flex-1 p-6 flex flex-col overflow-y-auto custom-scrollbar">
-              <div className="w-full max-w-4xl mx-auto flex flex-col gap-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-2xl font-semibold text-white mb-2">Promoción de Producto</h2>
-                    <p className="text-zinc-400 text-sm">Describe tu producto y cómo quieres que se muestre para generar un prompt comercial.</p>
-                  </div>
-                </div>
-
-                <div className="bg-zinc-900 border border-white/10 rounded-2xl p-6 flex flex-col gap-4">
-                  <h3 className="text-sm font-semibold text-white">Detalles del Producto</h3>
-                  
-                  <div className="flex flex-col gap-2">
-                    <label className="text-xs text-zinc-400">¿Qué producto es? (Describe sus características físicas):</label>
-                    <textarea 
-                      value={productDescription}
-                      onChange={(e) => setProductDescription(e.target.value)}
-                      placeholder="Ej: Una botella de vidrio elegante con perfume color ámbar, tapa dorada..."
-                      className="w-full bg-black/30 border border-white/10 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-emerald-500/50 min-h-[80px] resize-none"
-                    />
-                  </div>
-
-                  <div className="flex flex-col gap-2">
-                    <label className="text-xs text-zinc-400">¿Cómo se está usando o mostrando en la escena?:</label>
-                    <textarea 
-                      value={productUsage}
-                      onChange={(e) => setProductUsage(e.target.value)}
-                      placeholder="Ej: Descansando sobre una roca mojada en un bosque brumoso, con rayos de sol iluminando el líquido..."
-                      className="w-full bg-black/30 border border-white/10 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-emerald-500/50 min-h-[80px] resize-none"
-                    />
-                  </div>
-
-                  <button 
-                    onClick={async () => {
-                      setIsGeneratingProduct(true);
-                      try {
-                        const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
-                        const response = await ai.models.generateContent({
-                          model: 'gemini-3.1-flash-preview',
-                          contents: `Crea un prompt detallado en inglés para generar una imagen de alta calidad de un producto. 
-                          Producto: ${productDescription}
-                          Uso/Escena: ${productUsage}
-                          El prompt debe incluir detalles de iluminación (ej. studio lighting, cinematic lighting), tipo de cámara/lente (ej. 85mm, macro photography), y estilo visual (ej. photorealistic, commercial photography, 8k resolution).
-                          Devuelve SOLO el prompt, sin introducciones ni explicaciones.`,
-                        });
-                        setGeneratedProductPrompt(response.text || '');
-                      } catch (error) {
-                        console.error("Error generating product prompt:", error);
-                        setGeneratedProductPrompt("Error al generar el prompt. Por favor, inténtalo de nuevo.");
-                      } finally {
-                        setIsGeneratingProduct(false);
-                      }
-                    }}
-                    disabled={isGeneratingProduct || !productDescription.trim() || !productUsage.trim()}
-                    className="mt-2 w-full py-3 rounded-xl font-medium bg-emerald-500 text-black hover:bg-emerald-400 transition-colors disabled:opacity-50 disabled:hover:bg-emerald-500 flex items-center justify-center gap-2"
-                  >
-                    {isGeneratingProduct ? <Icons.Loader2 size={18} className="animate-spin" /> : <Icons.Wand2 size={18} />}
-                    {isGeneratingProduct ? 'Generando...' : 'Generar Prompt Comercial'}
-                  </button>
-                </div>
-
-                {generatedProductPrompt && (
-                  <motion.div 
-                    initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-                    className="bg-zinc-900 border border-emerald-500/30 rounded-2xl p-6 flex flex-col gap-4"
-                  >
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-semibold text-emerald-400 flex items-center gap-2">
-                        <Icons.Sparkles size={16} /> Prompt Generado
-                      </h3>
-                      <button 
-                        onClick={() => handleCopyPrompt(generatedProductPrompt)}
-                        className="p-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg transition-colors"
-                        title="Copiar prompt"
-                      >
-                        <Icons.Copy size={16} />
-                      </button>
-                    </div>
-                    <p className="text-zinc-300 text-sm leading-relaxed font-mono bg-black/30 p-4 rounded-xl border border-white/5">
-                      {generatedProductPrompt}
-                    </p>
-                    <div className="flex justify-end mt-2">
-                       <button 
-                        onClick={() => {
-                          setUndoStack(prev => [...prev, { blocks: selectedBlocks, instructions: customInstructions }]);
-                          setCustomInstructions([generatedProductPrompt]);
-                          setSelectedBlocks([]);
-                          setWorkMode('prompting');
-                        }}
-                        className="px-4 py-2 rounded-lg text-sm font-medium bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/20 transition-colors flex items-center gap-2"
-                      >
-                        <Icons.ArrowRight size={16} /> Llevar a Prompting
-                      </button>
-                    </div>
-                  </motion.div>
                 )}
               </div>
             </div>
@@ -2922,273 +2635,6 @@ export default function App() {
                       ))}
                     </div>
                   </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {workMode === 'profiles' && (
-            <div className="flex-1 p-6 flex flex-col overflow-y-auto custom-scrollbar">
-              <div className="w-full max-w-5xl mx-auto flex flex-col gap-6">
-                <div>
-                  <h2 className="text-2xl font-semibold text-white mb-2">Perfiles e Interacciones</h2>
-                  <p className="text-zinc-400 text-sm">Gestiona perfiles de personas y genera prompts basados en sus interacciones.</p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Subject 1 */}
-                  <div className="bg-zinc-900 border border-white/5 rounded-2xl p-5 flex flex-col gap-4">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-medium text-white flex items-center gap-2">
-                        <Icons.User size={18} className="text-emerald-400" />
-                        Sujeto 1
-                      </h3>
-                      <div className="flex items-center gap-2">
-                        <button 
-                          onClick={async () => {
-                            if (subject1.description && currentUser) {
-                              const newProfile = { ...subject1, id: Date.now().toString(), authorId: currentUser.uid, createdAt: Date.now(), title: subject1.name || 'Sujeto 1' };
-                              try {
-                                await setDoc(doc(db, 'profiles', newProfile.id), newProfile);
-                              } catch (error) {
-                                handleFirestoreError(error, OperationType.CREATE, `profiles/${newProfile.id}`);
-                              }
-                            }
-                          }}
-                          disabled={!subject1.description}
-                          className="text-xs text-emerald-400 hover:text-emerald-300 disabled:opacity-50 flex items-center gap-1"
-                        >
-                          <Icons.Save size={12} /> Guardar
-                        </button>
-                        <button 
-                          onClick={() => {
-                            setEditingProfile('subject1');
-                            setShowProfileModal(true);
-                          }}
-                          className="text-xs text-zinc-400 hover:text-white flex items-center gap-1"
-                        >
-                          <Icons.Download size={12} /> Cargar
-                        </button>
-                      </div>
-                    </div>
-                    <input 
-                      type="text" 
-                      placeholder="Nombre (Opcional)" 
-                      value={subject1.name}
-                      onChange={e => setSubject1({...subject1, name: e.target.value})}
-                      className="bg-zinc-950 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500/50"
-                    />
-                    <textarea 
-                      placeholder="Descripción física detallada..." 
-                      value={subject1.description}
-                      onChange={e => setSubject1({...subject1, description: e.target.value})}
-                      className="bg-zinc-950 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500/50 resize-none h-24"
-                    />
-                    <div className="grid grid-cols-2 gap-2">
-                      <input 
-                        type="text" 
-                        placeholder="Estilo de ropa" 
-                        value={subject1.style}
-                        onChange={e => setSubject1({...subject1, style: e.target.value})}
-                        className="bg-zinc-950 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500/50"
-                      />
-                      <input 
-                        type="text" 
-                        placeholder="Actitud/Expresión" 
-                        value={subject1.attitude}
-                        onChange={e => setSubject1({...subject1, attitude: e.target.value})}
-                        className="bg-zinc-950 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500/50"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Subject 2 */}
-                  <div className="bg-zinc-900 border border-white/5 rounded-2xl p-5 flex flex-col gap-4">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-medium text-white flex items-center gap-2">
-                        <Icons.User size={18} className="text-emerald-400" />
-                        Sujeto 2
-                      </h3>
-                      <div className="flex items-center gap-2">
-                        <button 
-                          onClick={async () => {
-                            if (subject2.description && currentUser) {
-                              const newProfile = { ...subject2, id: Date.now().toString(), authorId: currentUser.uid, createdAt: Date.now(), title: subject2.name || 'Sujeto 2' };
-                              try {
-                                await setDoc(doc(db, 'profiles', newProfile.id), newProfile);
-                              } catch (error) {
-                                handleFirestoreError(error, OperationType.CREATE, `profiles/${newProfile.id}`);
-                              }
-                            }
-                          }}
-                          disabled={!subject2.description}
-                          className="text-xs text-emerald-400 hover:text-emerald-300 disabled:opacity-50 flex items-center gap-1"
-                        >
-                          <Icons.Save size={12} /> Guardar
-                        </button>
-                        <button 
-                          onClick={() => {
-                            setEditingProfile('subject2');
-                            setShowProfileModal(true);
-                          }}
-                          className="text-xs text-zinc-400 hover:text-white flex items-center gap-1"
-                        >
-                          <Icons.Download size={12} /> Cargar
-                        </button>
-                      </div>
-                    </div>
-                    <input 
-                      type="text" 
-                      placeholder="Nombre (Opcional)" 
-                      value={subject2.name}
-                      onChange={e => setSubject2({...subject2, name: e.target.value})}
-                      className="bg-zinc-950 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500/50"
-                    />
-                    <textarea 
-                      placeholder="Descripción física detallada..." 
-                      value={subject2.description}
-                      onChange={e => setSubject2({...subject2, description: e.target.value})}
-                      className="bg-zinc-950 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500/50 resize-none h-24"
-                    />
-                    <div className="grid grid-cols-2 gap-2">
-                      <input 
-                        type="text" 
-                        placeholder="Estilo de ropa" 
-                        value={subject2.style}
-                        onChange={e => setSubject2({...subject2, style: e.target.value})}
-                        className="bg-zinc-950 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500/50"
-                      />
-                      <input 
-                        type="text" 
-                        placeholder="Actitud/Expresión" 
-                        value={subject2.attitude}
-                        onChange={e => setSubject2({...subject2, attitude: e.target.value})}
-                        className="bg-zinc-950 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500/50"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Interaction Settings */}
-                <div className="bg-zinc-900 border border-white/5 rounded-2xl p-5 flex flex-col gap-4">
-                  <h3 className="text-lg font-medium text-white flex items-center gap-2">
-                    <Icons.Settings2 size={18} className="text-emerald-400" />
-                    Parámetros de Interacción
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="flex flex-col gap-2">
-                      <label className="text-xs text-zinc-400 uppercase tracking-wider">Tipo de Interacción</label>
-                      <select 
-                        value={interactionType}
-                        onChange={e => setInteractionType(e.target.value)}
-                        className="bg-zinc-950 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500/50"
-                      >
-                        <option value="coexistence">Coexistencia (Juntos pero independientes)</option>
-                        <option value="contrast">Contraste (Opuestos/Enfrentados)</option>
-                        <option value="romantic">Romántica/Cercana</option>
-                        <option value="action">Acción/Dinámica</option>
-                      </select>
-                    </div>
-                    <div className="flex flex-col gap-2">
-                      <label className="text-xs text-zinc-400 uppercase tracking-wider">Estilo Visual</label>
-                      <select 
-                        value={visualStyle}
-                        onChange={e => setVisualStyle(e.target.value)}
-                        className="bg-zinc-950 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500/50"
-                      >
-                        <option value="cinematic">Cinematográfico</option>
-                        <option value="realistic">Fotografía Realista</option>
-                        <option value="artistic">Ilustración Artística</option>
-                        <option value="anime">Estilo Anime/Manga</option>
-                      </select>
-                    </div>
-                    <div className="flex flex-col gap-2">
-                      <label className="text-xs text-zinc-400 uppercase tracking-wider">Intensidad de Mezcla</label>
-                      <select 
-                        value={blendIntensity}
-                        onChange={e => setBlendIntensity(e.target.value)}
-                        className="bg-zinc-950 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500/50"
-                      >
-                        <option value="low">Baja (Mantiene estilos separados)</option>
-                        <option value="medium">Media (Integración natural)</option>
-                        <option value="high">Alta (Fusión de estilos)</option>
-                      </select>
-                    </div>
-                  </div>
-                  <button 
-                    onClick={async () => {
-                      if (!subject1.description || !subject2.description) return;
-                      setIsGeneratingProfile(true);
-                      try {
-                        const genAI = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
-                        const prompt = `Genera un prompt de imagen en inglés detallado para una IA generativa (como Midjourney o Stable Diffusion) que describa una escena con dos sujetos interactuando.
-                        
-                        Sujeto 1: ${subject1.name ? `Llamado ${subject1.name}, ` : ''}${subject1.description}. Estilo: ${subject1.style}. Actitud: ${subject1.attitude}.
-                        Sujeto 2: ${subject2.name ? `Llamado ${subject2.name}, ` : ''}${subject2.description}. Estilo: ${subject2.style}. Actitud: ${subject2.attitude}.
-                        
-                        Tipo de interacción: ${interactionType}.
-                        Estilo visual general: ${visualStyle}.
-                        Intensidad de mezcla: ${blendIntensity}.
-                        
-                        El prompt debe ser un solo párrafo coherente, descriptivo, enfocado en la composición visual, la iluminación y la atmósfera. No incluyas explicaciones, solo el prompt en inglés.`;
-                        
-                        const response = await genAI.models.generateContent({
-                          model: 'gemini-3.1-flash-preview',
-                          contents: prompt,
-                        });
-                        setGeneratedProfilePrompt(response.text || '');
-                      } catch (error) {
-                        console.error('Error generating profile prompt:', error);
-                      } finally {
-                        setIsGeneratingProfile(false);
-                      }
-                    }}
-                    disabled={isGeneratingProfile || !subject1.description || !subject2.description}
-                    className="mt-2 w-full py-3 rounded-xl font-medium bg-emerald-500 text-black hover:bg-emerald-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                  >
-                    {isGeneratingProfile ? (
-                      <><Icons.Loader2 size={18} className="animate-spin" /> Generando Prompt...</>
-                    ) : (
-                      <><Icons.Wand2 size={18} /> Generar Prompt de Interacción</>
-                    )}
-                  </button>
-                </div>
-
-                {/* Generated Prompt Result */}
-                {generatedProfilePrompt && (
-                  <motion.div 
-                    initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                    className="bg-zinc-900 border border-emerald-500/30 rounded-2xl p-5 flex flex-col gap-4"
-                  >
-                    <h3 className="text-lg font-medium text-white flex items-center gap-2">
-                      <Icons.Sparkles size={18} className="text-emerald-400" />
-                      Prompt Generado
-                    </h3>
-                    <textarea 
-                      value={generatedProfilePrompt}
-                      onChange={e => setGeneratedProfilePrompt(e.target.value)}
-                      className="w-full h-32 bg-zinc-950 border border-white/10 rounded-xl p-4 text-sm text-zinc-300 font-mono focus:outline-none focus:border-emerald-500/50 resize-none custom-scrollbar"
-                    />
-                    <div className="flex items-center justify-end gap-3">
-                      <button 
-                        onClick={() => handleCopyPrompt(generatedProfilePrompt)}
-                        className="px-4 py-2 rounded-lg text-sm font-medium bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white transition-colors flex items-center gap-2"
-                      >
-                        <Icons.Copy size={16} /> Copiar
-                      </button>
-                      <button 
-                        onClick={() => {
-                          setUndoStack(prev => [...prev, { blocks: selectedBlocks, instructions: customInstructions }]);
-                          setCustomInstructions([generatedProfilePrompt]);
-                          setSelectedBlocks([]);
-                          setWorkMode('prompting');
-                        }}
-                        className="px-4 py-2 rounded-lg text-sm font-medium bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/20 transition-colors flex items-center gap-2"
-                      >
-                        <Icons.ArrowRight size={16} /> Llevar a Prompting
-                      </button>
-                    </div>
-                  </motion.div>
                 )}
               </div>
             </div>
@@ -3637,12 +3083,24 @@ export default function App() {
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   onClick={() => setShowRightSidebar(false)}
-                  className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden"
+                  className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[140] md:hidden"
                 />
               )}
             </AnimatePresence>
             
-            <aside className={`${showRightSidebar ? 'translate-x-0' : 'translate-x-full'} md:translate-x-0 transition-transform duration-300 fixed md:relative right-0 top-0 bottom-0 w-72 border-l border-white/10 bg-[#0F0F0F] flex flex-col shrink-0 z-50 h-full`}>
+            {/* Desktop Sidebar Placeholder (for layout expansion) */}
+            <div className={`hidden md:block transition-all duration-300 shrink-0 relative ${showRightSidebar ? 'w-72' : 'w-0'}`} />
+
+            <aside className={`${showRightSidebar ? 'translate-x-0' : 'translate-x-full'} transition-transform duration-300 fixed md:absolute right-0 top-0 bottom-0 w-72 border-l border-white/10 bg-[#0F0F0F] flex flex-col shrink-0 z-[150] md:z-40 h-full shadow-2xl`}>
+              {/* Toggle Handle (Desktop only) */}
+              <button 
+                onClick={() => setShowRightSidebar(!showRightSidebar)}
+                className="hidden md:flex absolute left-0 top-1/2 -translate-x-full -translate-y-1/2 w-6 h-14 bg-[#0F0F0F] border border-white/10 border-r-0 rounded-l-xl items-center justify-center text-zinc-500 hover:text-white hover:bg-zinc-900 transition-all group z-50"
+                title={showRightSidebar ? "Contraer sugerencias" : "Mostrar sugerencias"}
+              >
+                {showRightSidebar ? <Icons.ChevronRight size={16} /> : <Icons.ChevronLeft size={16} />}
+              </button>
+              
               {/* Mobile Close Button */}
               <div className="md:hidden p-4 border-b border-white/10 flex items-center justify-between">
                 <span className="text-sm font-bold text-white">Copiloto</span>
@@ -3784,7 +3242,7 @@ export default function App() {
         {showSaveHistoryModal && (
           <motion.div 
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-6"
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[200] flex items-center justify-center p-6"
           >
             <motion.div 
               initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
@@ -3848,7 +3306,7 @@ export default function App() {
         {showHistory && (
           <motion.div 
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-6"
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[200] flex items-center justify-center p-6"
           >
             <motion.div 
               initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
@@ -4534,7 +3992,7 @@ export default function App() {
         {showUserProfileModal && selectedUser && (
           <motion.div 
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-6"
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[200] flex items-center justify-center p-6"
           >
             <motion.div 
               initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
@@ -4677,7 +4135,7 @@ export default function App() {
         {showNewsModal && (
           <motion.div 
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+            className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
           >
             <motion.div 
               initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
@@ -4804,78 +4262,6 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
-      <AnimatePresence>
-        {showProfileModal && (
-          <motion.div 
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-6"
-          >
-            <motion.div 
-              initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-[#0F0F0F] border border-white/10 rounded-2xl w-full max-w-3xl flex flex-col overflow-hidden shadow-2xl max-h-[80vh]"
-            >
-              <div className="p-6 border-b border-white/10 flex items-center justify-between bg-[#0A0A0A]">
-                <h2 className="text-xl font-semibold text-white flex items-center gap-2">
-                  <Icons.Users size={24} className="text-emerald-400" />
-                  Perfiles Guardados
-                </h2>
-                <button onClick={() => setShowProfileModal(false)} className="text-zinc-400 hover:text-white p-2">
-                  <Icons.X size={24} />
-                </button>
-              </div>
-              <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
-                {profiles.length === 0 ? (
-                  <div className="text-center py-12 text-zinc-500">
-                    <Icons.UserX size={48} className="mx-auto mb-4 opacity-50" />
-                    <p>No tienes perfiles guardados.</p>
-                    <p className="text-sm mt-2">Guarda un perfil desde la pestaña "Perfiles" para usarlo aquí.</p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {profiles.map(profile => (
-                      <div key={profile.id} className="bg-zinc-900 border border-white/5 rounded-xl p-4 flex flex-col gap-3 group hover:border-emerald-500/30 transition-colors">
-                        <div className="flex items-center justify-between">
-                          <h3 className="font-semibold text-white">{profile.name || 'Sin Nombre'}</h3>
-                          <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button 
-                              onClick={() => {
-                                if (editingProfile === 'subject1') setSubject1(profile);
-                                else if (editingProfile === 'subject2') setSubject2(profile);
-                                setShowProfileModal(false);
-                              }}
-                              className="text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1"
-                            >
-                              <Icons.Download size={12} /> Usar
-                            </button>
-                            <button 
-                              onClick={async () => {
-                                try {
-                                  await deleteDoc(doc(db, 'profiles', profile.id));
-                                } catch (error) {
-                                  handleFirestoreError(error, OperationType.DELETE, `profiles/${profile.id}`);
-                                }
-                              }}
-                              className="text-xs text-red-400 hover:text-red-300"
-                            >
-                              <Icons.Trash2 size={12} />
-                            </button>
-                          </div>
-                        </div>
-                        <p className="text-xs text-zinc-400 line-clamp-2">{profile.description}</p>
-                        <div className="flex gap-2 text-[10px] text-zinc-500">
-                          {profile.style && <span className="bg-zinc-800 px-2 py-1 rounded truncate max-w-[100px]">{profile.style}</span>}
-                          {profile.attitude && <span className="bg-zinc-800 px-2 py-1 rounded truncate max-w-[100px]">{profile.attitude}</span>}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* Bust Size Modal */}
       <AnimatePresence>
         {showBustModal && (
@@ -4935,7 +4321,7 @@ export default function App() {
         {showSmartphoneModal && (
           <motion.div 
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-6"
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[200] flex items-center justify-center p-6"
           >
             <motion.div 
               initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
@@ -5147,7 +4533,7 @@ export default function App() {
         )}
 
         {showSaveStyleModal && (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
             <motion.div 
               initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
               className="bg-zinc-900 border border-white/10 rounded-3xl w-full max-w-md overflow-hidden flex flex-col"
@@ -5221,7 +4607,7 @@ export default function App() {
         )}
 
         {showSettings && (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 overflow-y-auto">
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4 overflow-y-auto">
             <motion.div 
               initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
               className="bg-zinc-900 border border-white/10 rounded-3xl w-full max-w-lg overflow-hidden flex flex-col my-auto max-h-[95vh]"
@@ -5448,7 +4834,7 @@ export default function App() {
         {isSceneStructureExpanded && (
           <motion.div 
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/90 backdrop-blur-md z-[100] flex items-center justify-center p-4 md:p-10"
+            className="fixed inset-0 bg-black/90 backdrop-blur-md z-[200] flex items-center justify-center p-4 md:p-10"
           >
             <motion.div 
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
