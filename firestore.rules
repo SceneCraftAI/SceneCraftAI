@@ -123,7 +123,7 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() &&
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
+        ((exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true) ||
           (request.auth.token.email == "wanted123455a@gmail.com" && request.auth.token.email_verified == true));
     }
 
@@ -176,17 +176,19 @@ service cloud.firestore {
     // ===============================================================
 
     function isValidUser(data) {
-      return hasRequiredFields(['uid', 'email', 'hashtag', 'isAdmin', 'freePromptsUsed', 'isSubscribed', 'subscriptionTier', 'createdAt']) &&
+      return hasRequiredFields(['uid', 'email', 'isAdmin', 'freePromptsUsed', 'isSubscribed', 'subscriptionTier', 'plan', 'createdAt', 'updatedAt']) &&
              data.uid is string && data.uid.size() > 0 && data.uid.size() < 128 &&
              isValidEmail(data.email) &&
-             data.hashtag is string && data.hashtag.size() == 4 &&
              data.isAdmin is bool &&
              data.freePromptsUsed is number &&
              data.isSubscribed is bool &&
              data.subscriptionTier in ['free', 'pro', 'elite'] &&
+             data.plan is string &&
              data.createdAt is timestamp &&
+             data.updatedAt is timestamp &&
              isValidOptionalString('displayName', 0, 100) &&
-             isValidOptionalString('photoURL', 0, 1000);
+             isValidOptionalString('photoURL', 0, 1000) &&
+             isValidOptionalString('hashtag', 0, 10);
     }
 
     function isValidPromptSession(data) {

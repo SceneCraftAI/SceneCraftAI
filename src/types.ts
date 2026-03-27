@@ -18,6 +18,7 @@ export type CategoryId =
   | 'movement'
   | 'environment'
   | 'body_details'
+  | 'my_prompts'
   | string;
 
 export interface Category {
@@ -77,6 +78,9 @@ export interface User {
   freePromptsUsed: number;
   isSubscribed: boolean;
   subscriptionTier: SubscriptionTier;
+  plan: string;
+  createdAt: any;
+  updatedAt: any;
   subscriptionExpiry?: number;
 }
 
@@ -117,6 +121,14 @@ export interface SavedPrompt {
   id: string;
   title: string;
   prompt: string;
+  authorId: string;
+  createdAt: number;
+  folderId?: string;
+}
+
+export interface PromptFolder {
+  id: string;
+  name: string;
   authorId: string;
   createdAt: number;
 }

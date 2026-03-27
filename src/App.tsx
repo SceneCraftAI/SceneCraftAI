@@ -1,10 +1,18 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import * as Icons from 'lucide-react';
 import { GoogleGenAI, Type } from '@google/genai';
 import { io, Socket } from 'socket.io-client';
-import { INFLUENCER_CATEGORIES, INFLUENCER_BLOCKS, GENERAL_CATEGORIES, GENERAL_BLOCKS, ALL_CATEGORIES, ALL_BLOCKS } from './constants';
-import { Block, CategoryId, WorkMode, PromptSession, CustomCategory, CustomBlock, User, NewsItem, SavedPrompt } from './types';
+import { 
+  INFLUENCER_CATEGORIES, 
+  INFLUENCER_BLOCKS, 
+  GENERAL_CATEGORIES, 
+  GENERAL_BLOCKS, 
+  ALL_CATEGORIES, 
+  ALL_BLOCKS 
+} from './constants';
+import { CategoryAndPromptManager } from './components/CategoryAndPromptManager';
+import { Block, CategoryId, WorkMode, PromptSession, CustomCategory, CustomBlock, User, NewsItem, SavedPrompt, PromptFolder } from './types';
 import { generateCohesivePrompt, analyzeChatInput, suggestRelatedBlocks, analyzeImageForPrompt, PromptSegment, enhancePrompt, adaptPromptToModel } from './services/geminiService';
 import { auth, db, signInWithGoogle, logOut, handleFirestoreError, OperationType } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -56,7 +64,10 @@ export default function App() {
   const [showRightSidebar, setShowRightSidebar] = useState(false);
 
   // History & Favorites
-  const [promptHistory, setPromptHistory] = useState<PromptSession[]>([]);
+  const [promptHistory, setPromptHistory] = useState<PromptSession[]>(() => {
+    const saved = localStorage.getItem('scenecraft_library');
+    return saved ? JSON.parse(saved) : [];
+  });
   const [showHistory, setShowHistory] = useState(false);
   const [favoriteBlocks, setFavoriteBlocks] = useState<string[]>([]);
   const [showMoreCategory, setShowMoreCategory] = useState<CategoryId | null>(null);
@@ -117,7 +128,10 @@ export default function App() {
   const [showAddPromptModal, setShowAddPromptModal] = useState(false);
   const [newPromptTitle, setNewPromptTitle] = useState('');
   const [newPromptContent, setNewPromptContent] = useState('');
-  const [showCategoryManager, setShowCategoryManager] = useState(false);
+  const [showCategoryAndPromptManager, setShowCategoryAndPromptManager] = useState(false);
+  const [showEditInstructionModal, setShowEditInstructionModal] = useState(false);
+  const [editingInstructionIndex, setEditingInstructionIndex] = useState<number | null>(null);
+  const [editingInstructionText, setEditingInstructionText] = useState('');
   const [confirmModal, setConfirmModal] = useState<{
     show: boolean;
     title: string;
@@ -166,7 +180,7 @@ export default function App() {
   const [colorTheme, setColorTheme] = useState<'emerald' | 'blue' | 'purple' | 'rose' | 'amber'>('emerald');
   const [showTutorial, setShowTutorial] = useState(false);
   const [language, setLanguage] = useState(() => {
-    return localStorage.getItem('scenecraft_language') || 'es';
+    return localStorage.getItem('scenecraft_language') || 'en';
   });
 
   useEffect(() => {
@@ -195,27 +209,390 @@ export default function App() {
   ];
 
   const translations: Record<string, Record<string, string>> = {
-    en: {
-      'Influencer': 'Escena',
-      'Herramientas': 'Tools',
-      'Espacio': 'Space',
-      'Comunidad': 'Community',
-      'Escena': 'Scene',
-      'Recreación': 'Recreation',
-      'Variaciones': 'Variations',
-      'Prompting General': 'General Prompting',
+    es: {
+      'Visual Result': 'Resultado Visual',
+      'Main Focus': 'Enfoque Principal',
+      'Scene Type': 'Tipo de Escena',
+      'Environment': 'Ambientación',
+      'Action / Situation': 'Acción / Situación',
+      'Movement': 'Movimiento',
+      'Gesticulation': 'Gesticulación',
+      'Exposed Parts': 'Partes Expuestas',
+      'Camera / Angle': 'Cámara / Ángulo',
+      'Lens / Parameters': 'Lentes / Parámetros',
+      'Lighting': 'Iluminación',
+      'Realism': 'Realismo',
+      'Outfit / Styling': 'Outfit / Styling',
+      'Makeup': 'Maquillaje',
+      'Palette / Color': 'Paleta / Color',
+      'Background & Props': 'Fondo y Props',
+      'Intention': 'Intención',
+      'Body Details': 'Detalles del Cuerpo',
+      'Image Qualities': 'Calidades de Imagen',
+      'Restrictions': 'Restricciones',
+      'My Prompts': 'Mis Prompts',
+      'Artistic Style': 'Estilo Artístico',
+      'Main Subject': 'Sujeto Principal',
+      'Environment / Landscape': 'Entorno / Paisaje',
+      'Camera / Composition': 'Cámara / Composición',
+      'Atmosphere / Mood': 'Atmósfera / Mood',
+      'Color Palette': 'Paleta de Color',
+      'Detail Level': 'Nivel de Detalle',
+      'Tools': 'Herramientas',
+      'Space': 'Espacio',
+      'Community': 'Comunidad',
+      'Scene': 'Escena',
+      'Recreation': 'Recreación',
+      'Variations': 'Variaciones',
+      'General Prompting': 'Prompting General',
       'Flow': 'Flow',
       'Feed': 'Feed',
       'Co-Working': 'Co-Working',
-      'Historial': 'History',
-      'Generar Ahora': 'Generate Now',
-      'Copiado exitosamente en el portapapeles': 'Copied successfully to clipboard'
+      'History': 'Historial',
+      'Generate Now': 'Generar Ahora',
+      'Copied successfully to clipboard': 'Copiado exitosamente en el portapapeles',
+      'Search blocks...': 'Buscar bloques...',
+      'Select options': 'Selecciona opciones',
+      'Custom': 'Personalizado',
+      'Banned Words': 'Palabras Prohibidas',
+      'Add word': 'Añadir palabra',
+      'Locked': 'Bloqueado',
+      'Unlocked': 'Desbloqueado',
+      'Settings': 'Ajustes',
+      'Theme': 'Tema',
+      'Dark': 'Oscuro',
+      'Light': 'Claro',
+      'UI Style': 'Estilo de UI',
+      'Modern': 'Moderno',
+      'Glass': 'Cristal',
+      'Brutalist': 'Brutalista',
+      'Color Theme': 'Tema de Color',
+      'Prompt Language': 'Idioma del Prompt',
+      'Interface Language': 'Idioma de Interfaz',
+      'NSFW Content': 'Contenido NSFW',
+      'Prompt Character Limit': 'Límite de Caracteres',
+      'Close': 'Cerrar',
+      'Save': 'Guardar',
+      'Cancel': 'Cancelar',
+      'Delete': 'Eliminar',
+      'Edit': 'Editar',
+      'Copy': 'Copiar',
+      'Share': 'Compartir',
+      'Download': 'Descargar',
+      'Upload': 'Subir',
+      'Login': 'Iniciar Sesión',
+      'Logout': 'Cerrar Sesión',
+      'Admin Panel': 'Panel de Admin',
+      'Users': 'Usuarios',
+      'News': 'Noticias',
+      'Subscriptions': 'Suscripciones',
+      'Content': 'Contenido',
+      'Manual Generation': 'Generación Manual',
+      'Auto Generation': 'Generación Automática',
+      'Manual': 'Manual',
+      'Auto': 'Auto',
+      'Compiling...': 'Compilando...',
+      'Optimizing...': 'Optimizando...',
+      'Generating...': 'Generando...',
+      'Success': 'Éxito',
+      'Error': 'Error',
+      'Warning': 'Advertencia',
+      'Confirm': 'Confirmar',
+      'Are you sure?': '¿Estás seguro?',
+      'This action cannot be undone.': 'Esta acción no se puede deshacer.',
+      'Prompt optimized successfully': 'Prompt optimizado con éxito',
+      'Failed to optimize prompt': 'Error al optimizar el prompt',
+      'No blocks selected': 'No hay bloques seleccionados',
+      'Add custom instruction...': 'Añadir instrucción personalizada...',
+      'Clear all': 'Limpiar todo',
+      'Undo': 'Deshacer',
+      'Redo': 'Rehacer',
+      'Favorites': 'Favoritos',
+      'All': 'Todos',
+      'Search...': 'Buscar...',
+      'No results found': 'No se encontraron resultados',
+      'Loading...': 'Cargando...',
+      'Welcome back': 'Bienvenido de nuevo',
+      'Please login to save your prompts': 'Por favor, inicia sesión para guardar tus prompts',
+      'New Prompt': 'Nuevo Prompt',
+      'Title': 'Título',
+      'Content': 'Contenido',
+      'Save Prompt': 'Guardar Prompt',
+      'Edit Prompt': 'Editar Prompt',
+      'Delete Prompt': 'Eliminar Prompt',
+      'Share Prompt': 'Compartir Prompt',
+      'Copy to clipboard': 'Copiar al portapapeles',
+      'Prompt copied!': '¡Prompt copiado!',
+      'View Profile': 'Ver Perfil',
+      'My Profile': 'Mi Perfil',
+      'Public Feed': 'Feed Público',
+      'Trending': 'Tendencias',
+      'Recent': 'Recientes',
+      'Popular': 'Populares',
+      'Follow': 'Seguir',
+      'Recycle Bin': 'Papelera de Reciclaje',
+      'Empty Bin': 'Vaciar Papelera',
+      'Restore': 'Restaurar',
+      'Delete Permanently': 'Eliminar Permanentemente',
+      'No items in bin': 'No hay elementos en la papelera',
+      'Tutorial': 'Tutorial',
+      'Skip': 'Saltar',
+      'Next': 'Siguiente',
+      'Finish': 'Finalizar',
+      'Welcome to SceneCraft': 'Bienvenido a SceneCraft',
+      'Start building your scene': 'Empieza a construir tu escena',
+      'Select categories and blocks': 'Selecciona categorías y bloques',
+      'Customize your prompt': 'Personaliza tu prompt',
+      'Generate and share': 'Genera y comparte',
+      'Influencer Mode': 'Modo Influencer',
+      'General Mode': 'Modo General',
+      'Switch Mode': 'Cambiar Modo',
+      'Category Manager': 'Gestor de Categorías',
+      'Add Category': 'Añadir Categoría',
+      'Edit Category': 'Editar Categoría',
+      'Delete Category': 'Eliminar Categoría',
+      'Add Block': 'Añadir Bloque',
+      'Edit Block': 'Editar Bloque',
+      'Delete Block': 'Eliminar Bloque',
+      'Category Name': 'Nombre de la Categoría',
+      'Block Title': 'Título del Bloque',
+      'Block Value': 'Valor del Bloque',
+      'Icon': 'Icono',
+      'Color': 'Color',
+      'Parent Category': 'Categoría Padre',
+      'None': 'Ninguno',
+      'Subcategories': 'Subcategorías',
+      'Items': 'Elementos',
+      'Back': 'Volver',
+      'Save Changes': 'Guardar Cambios',
+      'Discard': 'Descartar',
+      'Are you sure you want to delete this category?': '¿Estás seguro de que quieres eliminar esta categoría?',
+      'All blocks inside will also be deleted.': 'Todos los bloques dentro también se eliminarán.',
+      'Are you sure you want to delete this block?': '¿Estás seguro de que quieres eliminar este bloque?',
+      'This cannot be undone.': 'Esto no se puede deshacer.',
+      'New Subcategory': 'Nueva Subcategoría',
+      'New Item': 'Nuevo Elemento',
+      'Edit Instruction': 'Editar Instrucción',
+      'Instruction Text': 'Texto de la Instrucción',
+      'Banned Word': 'Palabra Prohibida',
+      'Add Banned Word': 'Añadir Palabra Prohibida',
+      'Enter word...': 'Introduce palabra...',
+      'Unlock to edit': 'Desbloquea para editar',
+      'Lock': 'Bloquear',
+      'Unlock': 'Desbloquear',
+      'News & Updates': 'Noticias y Actualizaciones',
+      'No news yet': 'No hay noticias aún',
+      'Read more': 'Leer más',
+      'Mark as read': 'Marcar como leído',
+      'Admin': 'Admin',
+      'User Detail': 'Detalle de Usuario',
+      'Role': 'Rol',
+      'Plan': 'Plan',
+      'Free Prompts Used': 'Prompts Gratuitos Usados',
+      'Subscribed': 'Suscrito',
+      'Subscription Tier': 'Nivel de Suscripción',
+      'Created At': 'Creado el',
+      'Updated At': 'Actualizado el',
+      'Change Role': 'Cambiar Rol',
+      'Change Tier': 'Cambiar Nivel',
+      'Confirm Subscription Change': 'Confirmar Cambio de Suscripción',
+      'Please enter the admin email to confirm': 'Por favor, introduce el correo de admin para confirmar',
+      'Invalid admin email': 'Correo de admin inválido',
+      'Subscription updated successfully': 'Suscripción actualizada con éxito',
+      'Failed to update subscription': 'Error al actualizar la suscripción',
+      'User updated successfully': 'Usuario actualizado con éxito',
+      'Failed to update user': 'Error al actualizar el usuario',
+      'News created successfully': 'Noticia creada con éxito',
+      'Failed to create news': 'Error al crear la noticia',
+      'News deleted successfully': 'Noticia eliminada con éxito',
+      'Failed to delete news': 'Error al eliminar la noticia',
+      'Category saved successfully': 'Categoría guardada con éxito',
+      'Failed to save category': 'Error al guardar la categoría',
+      'Category deleted successfully': 'Categoría eliminada con éxito',
+      'Failed to delete category': 'Error al eliminar la categoría',
+      'Block saved successfully': 'Bloque guardado con éxito',
+      'Failed to save block': 'Error al guardar el bloque',
+      'Block deleted successfully': 'Bloque eliminado con éxito',
+      'Failed to delete block': 'Error al eliminar el bloque',
+      'Prompt saved successfully': 'Prompt guardado con éxito',
+      'Failed to save prompt': 'Error al guardar el prompt',
+      'Prompt deleted successfully': 'Prompt eliminado con éxito',
+      'Failed to delete prompt': 'Error al eliminar el prompt',
+      'Folder saved successfully': 'Carpeta guardada con éxito',
+      'Failed to save folder': 'Error al guardar la carpeta',
+      'Folder deleted successfully': 'Carpeta eliminada con éxito',
+      'Failed to delete folder': 'Error al eliminar la carpeta',
+      'Style saved successfully': 'Estilo guardado con éxito',
+      'Failed to save style': 'Error al guardar el estilo',
+      'Style deleted successfully': 'Estilo eliminado con éxito',
+      'Failed to delete style': 'Error al eliminar el estilo',
+      'Topic created successfully': 'Tópico creado con éxito',
+      'Failed to create topic': 'Error al crear el tópico',
+      'Invitation sent successfully': 'Invitación enviada con éxito',
+      'Failed to send invitation': 'Error al enviar la invitación',
+      'Message sent successfully': 'Mensaje enviado con éxito',
+      'Failed to send message': 'Error al enviar el mensaje',
+      'Login successful': 'Inicio de sesión exitoso',
+      'Logout successful': 'Cierre de sesión exitoso',
+      'Action cancelled': 'Acción cancelada',
+      'Optimizar para el límite': 'Optimize for limit',
+      'Editing banned words': 'Editando palabras prohibidas',
+      'Compiling...': 'Compilando...',
+      'SceneCraft Soul': 'SceneCraft Soul',
+      'Midjourney (V6+)': 'Midjourney (V6+)',
+      'Stable Diffusion (XL/3)': 'Stable Diffusion (XL/3)',
+      'DALL-E 3': 'DALL-E 3',
+      'IA Target (Optimización)': 'AI Target (Optimization)',
+      'Manual': 'Manual',
+      'Auto': 'Auto',
+      'Cambiar a Generación Automática': 'Switch to Auto Generation',
+      'Cambiar a Generación Manual': 'Switch to Manual Generation',
+      'GENERAR AHORA': 'GENERATE NOW',
+      'Resultado Visual': 'Visual Result',
+      'Enfoque Principal': 'Main Focus',
+      'Tipo de Escena': 'Scene Type',
+      'Ambientación': 'Environment',
+      'Acción / Situación': 'Action / Situation',
+      'Movimiento': 'Movement',
+      'Gesticulación': 'Gesticulation',
+      'Partes Expuestas': 'Exposed Parts',
+      'Cámara / Ángulo': 'Camera / Angle',
+      'Lentes / Parámetros': 'Lens / Parameters',
+      'Iluminación': 'Lighting',
+      'Realismo': 'Realism',
+      'Outfit / Styling': 'Outfit / Styling',
+      'Maquillaje': 'Makeup',
+      'Paleta / Color': 'Palette / Color',
+      'Fondo y Props': 'Background & Props',
+      'Intención': 'Intention',
+      'Detalles del Cuerpo': 'Body Details',
+      'Calidades de Imagen': 'Image Qualities',
+      'Restricciones': 'Restrictions',
+      'Mis Prompts': 'My Prompts',
+      'Estilo Artístico': 'Artistic Style',
+      'Sujeto Principal': 'Main Subject',
+      'Entorno / Paisaje': 'Environment / Landscape',
+      'Cámara / Composición': 'Camera / Composition',
+      'Atmósfera / Mood': 'Atmosphere / Mood',
+      'Paleta de Color': 'Color Palette',
+      'Nivel de Detalle': 'Detail Level',
+      'Prompting General': 'Prompting General',
+      'Escena': 'Escena',
+      'Recreación': 'Recreación',
+      'Variaciones': 'Variaciones',
+      'Prompting General': 'General Prompting',
+      'Flow': 'Flow',
+      'Comunidad': 'Comunidad',
+      'Feed': 'Feed',
+      'Co-Working': 'Co-Working',
+      'Historial': 'Historial',
+      'Herramientas': 'Herramientas',
+      'Espacio': 'Espacio',
+      'Admin Panel': 'Panel de Admin',
+      'Users': 'Usuarios',
+      'News': 'Noticias',
+      'Subs': 'Suscripciones',
+      'Cleaning...': 'Limpiando...',
+      'Clean': 'Limpiar',
+      'Prompt Title:': 'Título del Prompt:',
+      'Ex: Cyberpunk Neon Portrait': 'Ej: Retrato Cyberpunk Neón',
+      'Prompt (English):': 'Prompt (Inglés):',
+      'The prompt you want to share...': 'El prompt que deseas compartir...',
+      'Example Image URL (Optional):': 'URL de Imagen de Ejemplo (Opcional):',
+      'https://example.com/image.jpg': 'https://ejemplo.com/imagen.jpg',
+      'Publish': 'Publicar',
+      'Copy Prompt': 'Copiar Prompt',
+      'Use Prompt': 'Usar Prompt',
+      'Prompt Book': 'Libro de Prompts',
+      'This user hasn\'t shared any prompts yet.': 'Este usuario aún no ha compartido prompts.',
+      'Create New Topic': 'Crear Nuevo Tema',
+      'Ex: Futuristic Project, Rain Session...': 'Ej: Proyecto Futurista, Sesión de Lluvia...',
+      'Brief description of what will be discussed...': 'Breve descripción de lo que se discutirá...',
+      'Publish News': 'Publicar Noticia',
+      'News title...': 'Título de la noticia...',
+      'Write the content here...': 'Escribe el contenido aquí...',
+      'Invite to Topic': 'Invitar al Tema',
+      'Enter email or unique user (Name#1234) to invite.': 'Ingresa el correo electrónico o el usuario único (Nombre#1234) para invitar.',
+      'Ex: user@gmail.com or Name#1234': 'Ej: usuario@gmail.com o Nombre#1234',
+      'Send Invitation': 'Enviar Invitación',
+      'Bust Measurement': 'Medida de Busto',
+      'Specify bust measurement or "Bra Cup" for better body consistency.': 'Especifica la medida del busto o "Bra Cup" para mayor consistencia en el cuerpo.',
+      'Bra Cup / Measurement': 'Bra Cup / Medida',
+      'Ex: 34C, Large, DD cup...': 'Ej: 34C, Large, DD cup...',
+      'Smartphone Details': 'Detalles del Celular',
+      'What smartphone model would you like to appear in the prompt?': '¿Qué modelo de celular o smartphone te gustaría que aparezca en el prompt?',
+      'Model / Brand': 'Modelo / Marca',
+      'Ex: iPhone 15 Pro Max, Samsung S24 Ultra...': 'Ej: iPhone 15 Pro Max, Samsung S24 Ultra...',
+      'Recover accidentally deleted prompts.': 'Recupera prompts eliminados accidentalmente.',
+      'The bin is empty': 'La papelera está vacía',
+      'Untitled Prompt': 'Prompt sin título',
+      'Delete permanently': 'Eliminar permanentemente',
+      'Are you sure you want to empty the bin? This action cannot be undone.': '¿Estás seguro de que quieres vaciar la papelera? Esta acción no se puede deshacer.',
+      'Restore this prompt': 'Restaurar este prompt',
+      'Copy': 'Copiar',
+      'Save this prompt as a reusable style': 'Guarda este prompt como un estilo reutilizable',
+      'Ex: Cyberpunk Neon, Realistic Portrait...': 'Ej: Cyberpunk Neon, Retrato Realista...',
+      'What do you want to save from this recreation?': '¿Qué deseas guardar de esta recreación?',
+      'Everything in General': 'Todo en General',
+      'Save the full prompt as a base style.': 'Guarda el prompt completo como un estilo base.',
+      'Something Specific': 'Algo Específico',
+      'Save only key elements (lights, atmosphere, technique).': 'Guarda solo los elementos clave (luces, atmósfera, técnica).',
+      'Detailed Block Management': 'Gestión Detallada de Bloques',
+      'There are no elements in the current scene.': 'No hay elementos en la escena actual.',
+      'Chat Instruction': 'Instrucción Chat',
+      'Clear Scene': 'Limpiar Escena',
+      'Add New Prompt': 'Añadir Nuevo Prompt',
+      'Save your best creations': 'Guarda tus mejores creaciones',
+      'Ex: Cyberpunk Portrait': 'Ej: Retrato Cyberpunk',
+      'Prompt Content': 'Contenido del Prompt',
+      'Write or paste your prompt here...': 'Escribe o pega tu prompt aquí...',
+      'Add Prompt': 'Añadir Prompt',
+      'Edit Chat Topic': 'Editar Tópico de Chat',
+      'Modify your custom instruction': 'Modifica tu instrucción personalizada',
+      'Write your instruction here...': 'Escribe tu instrucción aquí...',
+      'Prompt Folders': 'Carpetas de Prompts',
+      'All Prompts': 'Todos los Prompts',
+      'Base Categories': 'Categorías Base',
+      'My Categories': 'Mis Categorías',
+      'My Saved Prompts': 'Mis Prompts Guardados',
+      'Category Details': 'Detalles de la Categoría',
+      'My Custom Categories': 'Mis Categorías Personalizadas',
+      'Showing {n} prompts': 'Mostrando {n} prompts',
+      'Manage items and subcategories': 'Gestionar elementos y subcategorías',
+      'Showing {n} custom categories': 'Mostrando {n} categorías personalizadas',
+      'Add Item': 'Añadir Elemento',
+      'Add {type}': 'Añadir {type}',
+      'Prompt': 'Prompt',
+      'Category': 'Categoría',
+      'Items / Variants': 'Elementos / Variantes',
+      'Base': 'Base',
+      'Subcategories / Folders': 'Subcategorías / Carpetas',
+      'Top-level category': 'Categoría de nivel superior',
+      'e.g. My Style': 'ej. Mi Estilo',
+      'Parent Category (Optional)': 'Categoría Padre (Opcional)',
+      'None (Top-level)': 'Ninguno (Nivel superior)',
+      'Custom': 'Personalizado',
+      'Save Category': 'Guardar Categoría',
+      'Label': 'Etiqueta',
+      'e.g. Cinematic Lighting': 'ej. Iluminación Cinemática',
+      'Prompt Text': 'Texto del Prompt',
+      'The text that will be added to the prompt...': 'El texto que se añadirá al prompt...',
+      'NSFW Content': 'Contenido NSFW',
+      'Mark if this item contains adult content': 'Marcar si este elemento contiene contenido para adultos',
+      'Save Item': 'Guardar Elemento',
+      'e.g. Hyper-realistic Portrait': 'ej. Retrato Hiperrealista',
+      'Write your prompt here...': 'Escribe tu prompt aquí...',
+      'Folder': 'Carpeta',
+      'No Folder': 'Sin Carpeta',
+      'Delete Folder': 'Eliminar Carpeta',
+      'Delete Item': 'Eliminar Elemento',
+      'Are you sure you want to delete this item? This action cannot be undone.': '¿Estás seguro de que quieres eliminar este elemento? Esta acción no se puede deshacer.',
     },
-    // Add other languages as needed, defaulting to Spanish if not found
+    // Add other languages as needed
   };
 
   const t = (key: string) => {
-    if (language === 'es') return key;
+    if (language === 'en') return key;
     return translations[language]?.[key] || key;
   };
 
@@ -256,23 +633,214 @@ export default function App() {
     perception: true
   });
 
-  const activeCategories = workMode === 'influencer' ? INFLUENCER_CATEGORIES : GENERAL_CATEGORIES;
-  const activeBlocks = workMode === 'influencer' ? INFLUENCER_BLOCKS : GENERAL_BLOCKS;
-  const [saveStyleTitle, setSaveStyleTitle] = useState('');
+  const activeCategories = useMemo(() => {
+    const base = workMode === 'influencer' ? INFLUENCER_CATEGORIES : GENERAL_CATEGORIES;
+    const custom = customCategories
+      .filter(c => !c.parentId)
+      .map(c => ({
+        id: c.id,
+        label: c.name,
+        icon: c.icon || 'Folder',
+        color: c.color || 'text-zinc-300',
+        isCustom: true
+      }));
+    return [...base, ...custom];
+  }, [workMode, customCategories]);
 
-  // Smartphone Modal State
-  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+  const allCategoriesCombined = useMemo(() => {
+    const customMapped = customCategories.map(c => ({
+      id: c.id,
+      label: c.name,
+      icon: c.icon || 'Folder',
+      color: c.color || 'text-zinc-300',
+      isCustom: true
+    }));
+    return [...ALL_CATEGORIES, ...customMapped];
+  }, [customCategories]);
+  const handleSaveCategory = async (cat: CustomCategory) => {
+    if (currentUser) {
+      try {
+        await setDoc(doc(db, 'customCategories', cat.id), cat);
+      } catch (error) {
+        handleFirestoreError(error, OperationType.WRITE, `customCategories/${cat.id}`);
+      }
+    } else {
+      setCustomCategories(prev => {
+        const updated = prev.find(c => c.id === cat.id) 
+          ? prev.map(c => c.id === cat.id ? cat : c)
+          : [...prev, cat];
+        localStorage.setItem('local_customCategories', JSON.stringify(updated));
+        return updated;
+      });
+    }
+  };
 
-  // Copy Toast State
+  const handleDeleteCategory = async (id: string) => {
+    showConfirm(
+      'Eliminar Categoría',
+      '¿Estás seguro de que quieres eliminar esta categoría? Todos los bloques dentro de ella también se eliminarán.',
+      async () => {
+        if (currentUser) {
+          try {
+            await deleteDoc(doc(db, 'customCategories', id));
+            // Also delete associated blocks
+            const blocksToDelete = customBlocks.filter(b => b.categoryId === id);
+            for (const block of blocksToDelete) {
+              await deleteDoc(doc(db, 'customBlocks', block.id));
+            }
+          } catch (error) {
+            handleFirestoreError(error, OperationType.DELETE, `customCategories/${id}`);
+          }
+        } else {
+          setCustomCategories(prev => {
+            const updated = prev.filter(c => c.id !== id);
+            localStorage.setItem('local_customCategories', JSON.stringify(updated));
+            return updated;
+          });
+          setCustomBlocks(prev => {
+            const updated = prev.filter(b => b.categoryId !== id);
+            localStorage.setItem('local_customBlocks', JSON.stringify(updated));
+            return updated;
+          });
+        }
+        if (activeCategory === id) {
+          setActiveCategory(ALL_CATEGORIES[0].id);
+        }
+      }
+    );
+  };
+
+  const handleSaveFolder = async (folder: PromptFolder) => {
+    if (currentUser) {
+      try {
+        await setDoc(doc(db, 'promptFolders', folder.id), folder);
+      } catch (error) {
+        handleFirestoreError(error, OperationType.WRITE, `promptFolders/${folder.id}`);
+      }
+    } else {
+      setPromptFolders(prev => {
+        const updated = prev.find(f => f.id === folder.id) 
+          ? prev.map(f => f.id === folder.id ? folder : f)
+          : [...prev, folder];
+        localStorage.setItem('local_promptFolders', JSON.stringify(updated));
+        return updated;
+      });
+    }
+  };
+
+  const handleDeleteFolder = async (id: string) => {
+    showConfirm(
+      'Eliminar Carpeta',
+      '¿Estás seguro de que quieres eliminar esta carpeta? Los prompts dentro de ella no se eliminarán, pero perderán su asociación.',
+      async () => {
+        if (currentUser) {
+          try {
+            await deleteDoc(doc(db, 'promptFolders', id));
+          } catch (error) {
+            handleFirestoreError(error, OperationType.DELETE, `promptFolders/${id}`);
+          }
+        } else {
+          setPromptFolders(prev => {
+            const updated = prev.filter(f => f.id !== id);
+            localStorage.setItem('local_promptFolders', JSON.stringify(updated));
+            return updated;
+          });
+        }
+      }
+    );
+  };
+
+  const handleSaveCustomBlock = async (block: CustomBlock) => {
+    if (currentUser) {
+      try {
+        await setDoc(doc(db, 'customBlocks', block.id), block);
+      } catch (error) {
+        handleFirestoreError(error, OperationType.WRITE, `customBlocks/${block.id}`);
+      }
+    } else {
+      setCustomBlocks(prev => {
+        const updated = prev.find(b => b.id === block.id) 
+          ? prev.map(b => b.id === block.id ? block : b)
+          : [...prev, block];
+        localStorage.setItem('local_customBlocks', JSON.stringify(updated));
+        return updated;
+      });
+    }
+  };
+
+  const handleDeleteCustomBlock = async (id: string) => {
+    showConfirm(
+      'Eliminar Item',
+      '¿Estás seguro de que quieres eliminar este item? Esta acción no se puede deshacer.',
+      async () => {
+        if (currentUser) {
+          try {
+            await deleteDoc(doc(db, 'customBlocks', id));
+          } catch (error) {
+            handleFirestoreError(error, OperationType.DELETE, `customBlocks/${id}`);
+          }
+        } else {
+          setCustomBlocks(prev => {
+            const updated = prev.filter(b => b.id !== id);
+            localStorage.setItem('local_customBlocks', JSON.stringify(updated));
+            return updated;
+          });
+        }
+      }
+    );
+  };
+
+  const handleSavePrompt = async (prompt: SavedPrompt) => {
+    if (currentUser) {
+      try {
+        await setDoc(doc(db, 'savedPrompts', prompt.id), prompt);
+      } catch (error) {
+        handleFirestoreError(error, OperationType.WRITE, `savedPrompts/${prompt.id}`);
+      }
+    } else {
+      setSavedPrompts(prev => {
+        const updated = prev.find(p => p.id === prompt.id) 
+          ? prev.map(p => p.id === prompt.id ? prompt : p)
+          : [...prev, prompt];
+        localStorage.setItem('local_savedPrompts', JSON.stringify(updated));
+        return updated;
+      });
+    }
+  };
+
+  const handleDeletePrompt = async (id: string) => {
+    showConfirm(
+      'Eliminar Prompt',
+      '¿Estás seguro de que quieres eliminar este prompt? Esta acción no se puede deshacer.',
+      async () => {
+        if (currentUser) {
+          try {
+            await deleteDoc(doc(db, 'savedPrompts', id));
+          } catch (error) {
+            handleFirestoreError(error, OperationType.DELETE, `savedPrompts/${id}`);
+          }
+        } else {
+          setSavedPrompts(prev => {
+            const updated = prev.filter(p => p.id !== id);
+            localStorage.setItem('local_savedPrompts', JSON.stringify(updated));
+            return updated;
+          });
+        }
+      }
+    );
+  };
+
+  // My Prompts State
+  const [savedPrompts, setSavedPrompts] = useState<SavedPrompt[]>([]);
+  const [promptFolders, setPromptFolders] = useState<PromptFolder[]>([]);
   const [copyToast, setCopyToast] = useState<{show: boolean, message: string}>({show: false, message: ''});
 
   const handleCopyPrompt = (text: string) => {
     navigator.clipboard.writeText(text);
-    setCopyToast({show: true, message: t('Copiado exitosamente en el portapapeles')});
+    setCopyToast({show: true, message: 'Copiado exitosamente en el portapapeles'});
     setTimeout(() => setCopyToast({show: false, message: ''}), 3000);
   };
 
-  // Bust Size Modal State
   const handleAlquimiaGenerate = async () => {
     if (alquimiaImages.every(img => img === null)) {
       setAlquimiaError("Por favor, sube al menos una imagen.");
@@ -324,19 +892,38 @@ export default function App() {
     }
   };
 
-  // My Prompts State
-  const [savedPrompts, setSavedPrompts] = useState<SavedPrompt[]>([]);
-
   useEffect(() => {
     const localSavedPrompts = localStorage.getItem('local_savedPrompts');
     if (localSavedPrompts) {
       setSavedPrompts(JSON.parse(localSavedPrompts));
+    }
+    const localPromptFolders = localStorage.getItem('local_promptFolders');
+    if (localPromptFolders) {
+      setPromptFolders(JSON.parse(localPromptFolders));
     }
   }, []);
 
   useEffect(() => {
     localStorage.setItem('local_savedPrompts', JSON.stringify(savedPrompts));
   }, [savedPrompts]);
+
+  useEffect(() => {
+    localStorage.setItem('local_promptFolders', JSON.stringify(promptFolders));
+  }, [promptFolders]);
+
+  const activeBlocks = useMemo(() => {
+    if (activeCategory === 'my_prompts') {
+      return savedPrompts.map(p => ({
+        id: p.id,
+        categoryId: 'my_prompts' as CategoryId,
+        label: p.title,
+        value: p.prompt,
+        isCustom: true
+      }));
+    }
+    const baseBlocks = workMode === 'influencer' ? INFLUENCER_BLOCKS : GENERAL_BLOCKS;
+    return baseBlocks.filter(b => b.categoryId === activeCategory);
+  }, [activeCategory, workMode, savedPrompts]);
 
   const handleOpenAddPromptModal = () => {
     setNewPromptTitle(`Prompt ${savedPrompts.length + 1}`);
@@ -380,7 +967,7 @@ export default function App() {
 
   const [isManualGeneration, setIsManualGeneration] = useState(() => {
     const saved = localStorage.getItem('scenecraft_manual_gen');
-    return saved ? JSON.parse(saved) : false;
+    return saved ? JSON.parse(saved) : true;
   });
   const [aiTargetType, setAiTargetType] = useState(() => {
     const saved = localStorage.getItem('scenecraft_ai_target');
@@ -428,33 +1015,65 @@ export default function App() {
               displayName: userData.displayName || firebaseUser.displayName || 'User',
               hashtag: userData.hashtag || Math.random().toString(36).substring(2, 6).toUpperCase(),
               photoURL: userData.photoURL || firebaseUser.photoURL || '',
-              isAdmin: userData.role === 'admin',
+              isAdmin: userData.isAdmin || userData.role === 'admin',
               freePromptsUsed: userData.freePromptsUsed || 0,
               isSubscribed: userData.isSubscribed || false,
-              subscriptionTier: userData.subscriptionTier || 'free'
+              subscriptionTier: userData.subscriptionTier || 'free',
+              plan: userData.plan || 'free',
+              createdAt: userData.createdAt,
+              updatedAt: userData.updatedAt
             });
           } else {
-            // Create new user
+            // Create new user with all required fields for rules validation
+            const hashtag = Math.random().toString(36).substring(2, 6).toUpperCase();
             const newUser = {
               uid: firebaseUser.uid,
               email: firebaseUser.email || '',
               displayName: firebaseUser.displayName || 'User',
               photoURL: firebaseUser.photoURL || '',
-              role: 'user',
-              createdAt: serverTimestamp()
-            };
-            await setDoc(userDocRef, newUser);
-            setCurrentUser({
-              ...newUser,
-              hashtag: Math.random().toString(36).substring(2, 6).toUpperCase(),
+              hashtag: hashtag,
               isAdmin: false,
               freePromptsUsed: 0,
               isSubscribed: false,
-              subscriptionTier: 'free'
-            });
+              subscriptionTier: 'free',
+              plan: 'free',
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp()
+            };
+            
+            try {
+              await setDoc(userDocRef, newUser);
+              setCurrentUser({
+                ...newUser,
+                createdAt: new Date(),
+                updatedAt: new Date()
+              });
+            } catch (err) {
+              console.warn("Could not create user profile in Firestore, using local fallback", err);
+              setCurrentUser({
+                ...newUser,
+                createdAt: new Date(),
+                updatedAt: new Date()
+              });
+            }
           }
         } catch (error) {
-          handleFirestoreError(error, OperationType.GET, `users/${firebaseUser.uid}`);
+          console.warn("Could not load user profile from Firestore, using local fallback", error);
+          // Fallback user object if Firestore fails
+          setCurrentUser({
+            uid: firebaseUser.uid,
+            email: firebaseUser.email || '',
+            displayName: firebaseUser.displayName || 'User',
+            hashtag: 'TEMP',
+            photoURL: firebaseUser.photoURL || '',
+            isAdmin: false,
+            freePromptsUsed: 0,
+            isSubscribed: false,
+            subscriptionTier: 'free',
+            plan: 'free',
+            createdAt: new Date(),
+            updatedAt: new Date()
+          });
         }
       } else {
         setCurrentUser(null);
@@ -538,7 +1157,10 @@ export default function App() {
     
     try {
       const userRef = doc(db, 'users', currentUser.uid);
-      await updateDoc(userRef, { displayName: newName });
+      await updateDoc(userRef, { 
+        displayName: newName,
+        updatedAt: serverTimestamp()
+      });
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `users/${currentUser.uid}`);
     }
@@ -552,7 +1174,12 @@ export default function App() {
 
   useEffect(() => {
     if (!currentUser) {
-      setPromptHistory([]);
+      const saved = localStorage.getItem('scenecraft_library');
+      if (saved) {
+        setPromptHistory(JSON.parse(saved).sort((a: PromptSession, b: PromptSession) => b.date - a.date));
+      } else {
+        setPromptHistory([]);
+      }
       return;
     }
 
@@ -678,6 +1305,7 @@ export default function App() {
   useEffect(() => {
     const compile = async () => {
       if (!isBannedWordsLocked) return; // Pause prompting if banned words are unlocked
+      if (isEditingPrompt) return; // Don't auto-compile while user is manually editing
       
       // If manual generation is enabled, don't auto-compile
       if (isManualGeneration && !manualPromptReady) {
@@ -736,6 +1364,7 @@ export default function App() {
     try {
       const enhanced = await enhancePrompt(compiledPrompt);
       setCompiledPrompt(enhanced);
+      setPromptSegments([{ text: enhanced, categoryId: 'custom' }]);
       setIsEditingPrompt(true);
       
       // Add to session history
@@ -758,6 +1387,7 @@ export default function App() {
     setIsCompiling(true);
     const adapted = await adaptPromptToModel(compiledPrompt, model);
     setCompiledPrompt(adapted);
+    setPromptSegments([{ text: adapted, categoryId: 'custom' }]);
     setIsEditingPrompt(true);
     setIsCompiling(false);
   };
@@ -914,6 +1544,15 @@ export default function App() {
     setCustomInstructions(prev => prev.filter((_, i) => i !== index));
   };
 
+  const handleSaveEditedInstruction = () => {
+    if (editingInstructionIndex !== null && editingInstructionText.trim() !== '') {
+      setCustomInstructions(prev => prev.map((item, i) => i === editingInstructionIndex ? editingInstructionText.trim() : item));
+      setShowEditInstructionModal(false);
+      setEditingInstructionIndex(null);
+      setEditingInstructionText('');
+    }
+  };
+
   const saveToHistory = () => {
     if (!compiledPrompt) return;
     setSaveHistoryTitle('');
@@ -923,46 +1562,66 @@ export default function App() {
   const generateHistoryTitle = async () => {
     if (!compiledPrompt) return;
     setIsGeneratingHistoryTitle(true);
+    
+    // Local fallback logic: take first 4-5 words and capitalize
+    const words = compiledPrompt.split(' ').slice(0, 5);
+    const localTitle = words.join(' ').replace(/[,.;]/g, '') + (words.length >= 5 ? '...' : '');
+    
     try {
       const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
-        contents: `Genera un título corto y descriptivo (máximo 5 palabras) para este prompt de generación de imágenes: "${compiledPrompt}"`,
+        contents: `Generate a short and descriptive English title (max 5 words) for this image generation prompt: "${compiledPrompt}". Return ONLY the title text.`,
       });
       if (response.text) {
         setSaveHistoryTitle(response.text.trim().replace(/["']/g, ''));
+      } else {
+        setSaveHistoryTitle(localTitle);
       }
     } catch (error) {
       console.error("Error generating title:", error);
+      setSaveHistoryTitle(localTitle);
     } finally {
       setIsGeneratingHistoryTitle(false);
     }
   };
 
   const confirmSaveHistory = async () => {
-    if (!compiledPrompt || !currentUser) return;
+    if (!compiledPrompt) return;
     const newSession: PromptSession = {
       id: Date.now().toString(),
-      title: saveHistoryTitle || 'Prompt sin título',
+      title: saveHistoryTitle || 'Untitled Prompt',
       date: Date.now(),
       mode: workMode,
-      selectedBlocks: JSON.stringify(selectedBlocks),
+      selectedBlocks: [...selectedBlocks],
       customInstructions: [...customInstructions],
       compiledPrompt,
       isFavorite: false,
-      likes: 0, // For sorting
-      authorId: currentUser.uid,
-      authorName: currentUser.displayName,
+      likes: 0,
+      authorId: currentUser?.uid || 'local_user',
+      authorName: currentUser?.displayName || 'Local User',
       isPublic: false
     };
     
-    try {
-      await setDoc(doc(db, 'prompts', newSession.id), newSession);
-      setShowSaveHistoryModal(false);
-      setSaveHistoryTitle('');
-    } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, `prompts/${newSession.id}`);
+    if (currentUser) {
+      try {
+        await setDoc(doc(db, 'prompts', newSession.id), newSession);
+      } catch (error) {
+        handleFirestoreError(error, OperationType.CREATE, `prompts/${newSession.id}`);
+      }
+    } else {
+      // Save to local storage
+      const saved = localStorage.getItem('scenecraft_library');
+      const library = saved ? JSON.parse(saved) : [];
+      const updatedLibrary = [newSession, ...library];
+      localStorage.setItem('scenecraft_library', JSON.stringify(updatedLibrary));
+      setPromptHistory(updatedLibrary);
     }
+
+    setShowSaveHistoryModal(false);
+    setSaveHistoryTitle('');
+    setCopyToast({ show: true, message: 'Saved to Library!' });
+    setTimeout(() => setCopyToast({ show: false, message: '' }), 3000);
   };
 
   const confirmSmartphoneModel = () => {
@@ -1035,19 +1694,33 @@ export default function App() {
 
   const loadSession = (session: PromptSession) => {
     setWorkMode(session.mode as WorkMode);
-    try {
-      setSelectedBlocks(JSON.parse(session.selectedBlocks as unknown as string));
-    } catch (e) {
-      setSelectedBlocks([]);
+    if (Array.isArray(session.selectedBlocks)) {
+      setSelectedBlocks(session.selectedBlocks);
+    } else {
+      try {
+        setSelectedBlocks(JSON.parse(session.selectedBlocks as string));
+      } catch (e) {
+        setSelectedBlocks([]);
+      }
     }
     setCustomInstructions(session.customInstructions || []);
+    setCompiledPrompt(session.compiledPrompt || '');
+    setPromptSegments([{ text: session.compiledPrompt || '', categoryId: 'custom' }]);
+    setIsEditingPrompt(true);
     setShowHistory(false);
   };
 
   const handleAddBannedWord = (e: React.FormEvent) => {
     e.preventDefault();
-    if (bannedWordInput.trim() && !bannedWords.includes(bannedWordInput.trim())) {
-      setBannedWords(prev => [...prev, bannedWordInput.trim()]);
+    if (bannedWordInput.trim()) {
+      const newWords = bannedWordInput
+        .split(',')
+        .map(w => w.trim())
+        .filter(w => w !== '' && !bannedWords.includes(w));
+      
+      if (newWords.length > 0) {
+        setBannedWords(prev => [...prev, ...newWords]);
+      }
       setBannedWordInput('');
     }
   };
@@ -1163,7 +1836,7 @@ export default function App() {
               onClick={handleUndo}
               disabled={undoStack.length === 0}
               className="text-zinc-400 hover:text-white disabled:opacity-30 disabled:hover:text-zinc-400 transition-colors p-2 rounded-lg hover:bg-zinc-800 hidden sm:block"
-              title="Deshacer"
+              title="Undo"
             >
               <Icons.Undo2 size={18} />
             </button>
@@ -1172,13 +1845,13 @@ export default function App() {
               className="bg-emerald-500 hover:bg-emerald-600 text-black font-medium text-xs md:text-sm px-3 md:px-4 py-1.5 rounded-full transition-colors flex items-center gap-2"
             >
               <Icons.Save size={14} />
-              <span className="hidden sm:inline">Guardar</span>
+              <span className="hidden sm:inline">Save</span>
             </button>
             <div className="relative">
               <button 
                 onClick={() => setShowHeaderMenu(!showHeaderMenu)}
                 className="p-2 text-zinc-400 hover:text-white transition-colors rounded-lg hover:bg-zinc-800"
-                title="Más opciones"
+                title="More options"
               >
                 <Icons.MoreVertical size={20} />
               </button>
@@ -1198,14 +1871,14 @@ export default function App() {
                         className="flex items-center gap-3 px-3 py-2 text-sm text-zinc-300 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors w-full text-left"
                       >
                         <Icons.BookMarked size={16} />
-                        <span>Historial</span>
+                        <span>My Library</span>
                       </button>
                       <button 
                         onClick={() => { setShowSettings(true); setShowHeaderMenu(false); }}
                         className="flex items-center gap-3 px-3 py-2 text-sm text-zinc-300 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors w-full text-left"
                       >
                         <Icons.Settings size={16} />
-                        <span>Configuración de la cuenta</span>
+                        <span>Account Settings</span>
                       </button>
                     </div>
                   </motion.div>
@@ -1337,10 +2010,17 @@ export default function App() {
                 </button>
               </div>
               
-              <div className="flex flex-col h-1/2 border-b border-white/10">
-              <div className="p-4 pb-2">
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Categorías Visuales</h2>
-              </div>
+              <div className="flex flex-col h-full overflow-hidden">
+                <div className="p-4 pb-2 flex items-center justify-between">
+                  <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Categorías Visuales</h2>
+                  <button 
+                    onClick={() => setShowCategoryAndPromptManager(true)}
+                    className="p-1.5 text-zinc-400 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-md transition-all"
+                    title="Gestionar Categorías y Prompts"
+                  >
+                    <Icons.Settings2 size={14} />
+                  </button>
+                </div>
               <div className="flex-1 overflow-y-auto custom-scrollbar px-4 pb-4">
                 <div className="flex flex-col gap-1">
                   {activeCategories.map(cat => (
@@ -1368,94 +2048,6 @@ export default function App() {
                       )}
                     </motion.button>
                   ))}
-                  
-                  {/* Custom Categories Section */}
-                  <div className="mt-4 pt-4 border-t border-white/5">
-                    <div className="flex items-center justify-between mb-2 px-2">
-                      <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Mis Categorías</h2>
-                      <div className="flex items-center gap-2">
-                        <button 
-                          onClick={() => setShowCategoryManager(true)}
-                          className="text-zinc-400 hover:text-emerald-400"
-                          title="Gestionar categorías"
-                        >
-                          <Icons.Settings2 size={14} />
-                        </button>
-                        <button 
-                          onClick={async () => {
-                            const id = `custom_cat_${Date.now()}`;
-                            const newCat: CustomCategory = { id, name: 'Nueva Categoría', icon: 'Folder', color: 'emerald', authorId: currentUser?.uid || 'local_user', parentId: null };
-                            
-                            if (currentUser) {
-                              try {
-                                await setDoc(doc(db, 'customCategories', id), newCat);
-                              } catch (error) {
-                                handleFirestoreError(error, OperationType.CREATE, `customCategories/${id}`);
-                              }
-                            } else {
-                              setCustomCategories(prev => {
-                                const updated = [...prev, newCat];
-                                localStorage.setItem('local_customCategories', JSON.stringify(updated));
-                                return updated;
-                              });
-                            }
-                            setActiveCategory(id);
-                          }}
-                          className="text-zinc-400 hover:text-emerald-400"
-                        >
-                          <Icons.Plus size={14} />
-                        </button>
-                      </div>
-                    </div>
-                    {/* My Prompts Section */}
-                    <div className="mt-4 pt-4 border-t border-white/5">
-                      <div className="flex items-center justify-between mb-2 px-2">
-                        <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Mis Prompts</h2>
-                        <button 
-                          onClick={handleOpenAddPromptModal}
-                          className="text-zinc-400 hover:text-emerald-400"
-                          title="Guardar prompt actual"
-                        >
-                          <Icons.Plus size={14} />
-                        </button>
-                      </div>
-                      <div className="space-y-1">
-                        {savedPrompts.map(p => (
-                          <div key={p.id} className="group relative">
-                            <button
-                              onClick={() => {
-                                // Logic to add prompt to scene as a topic
-                                const newBlock: Block = {
-                                  id: `prompt_block_${Date.now()}`,
-                                  categoryId: 'scene',
-                                  label: p.title,
-                                  value: p.prompt,
-                                  isCustom: true
-                                };
-                                setSelectedBlocks(prev => [...prev, newBlock]);
-                              }}
-                              className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200 transition-colors"
-                            >
-                              <div className="flex items-center gap-3">
-                                <Icons.FileText size={18} className="text-zinc-500" />
-                                <span className="truncate max-w-[140px]">{p.title}</span>
-                              </div>
-                            </button>
-                            <button 
-                              onClick={() => showConfirm(
-                                'Eliminar Prompt',
-                                `¿Estás seguro de que quieres eliminar "${p.title}"? Esta acción no se puede deshacer.`,
-                                () => setSavedPrompts(prev => prev.filter(item => item.id !== p.id))
-                              )}
-                              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-zinc-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                            >
-                              <Icons.Trash2 size={12} />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
                 </div>
               </div>
             </div>
@@ -1474,141 +2066,89 @@ export default function App() {
                 </div>
 
                 {activeCategory.startsWith('custom_cat_') ? (
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <input 
-                      type="text"
-                      value={customCategories.find(c => c.id === activeCategory)?.name || ''}
-                      onChange={async (e) => {
-                        const newName = e.target.value;
-                        if (currentUser) {
-                          try {
-                            await updateDoc(doc(db, 'customCategories', activeCategory), { name: newName });
-                          } catch (error) {
-                            handleFirestoreError(error, OperationType.UPDATE, `customCategories/${activeCategory}`);
-                          }
-                        } else {
-                          setCustomCategories(prev => {
-                            const updated = prev.map(c => c.id === activeCategory ? { ...c, name: newName } : c);
-                            localStorage.setItem('local_customCategories', JSON.stringify(updated));
-                            return updated;
-                          });
-                        }
-                      }}
-                      className="bg-transparent text-sm font-medium text-white focus:outline-none border-b border-transparent focus:border-emerald-500/50"
-                    />
-                    <button 
-                      onClick={() => showConfirm(
-                        'Eliminar Categoría',
-                        `¿Estás seguro de que quieres eliminar la categoría "${customCategories.find(c => c.id === activeCategory)?.name}"? Todos los bloques dentro de ella también se eliminarán.`,
-                        async () => {
-                          if (currentUser) {
-                            try {
-                              await deleteDoc(doc(db, 'customCategories', activeCategory));
-                              // Also delete associated blocks
-                              const blocksToDelete = customBlocks.filter(b => b.categoryId === activeCategory);
-                              for (const block of blocksToDelete) {
-                                await deleteDoc(doc(db, 'customBlocks', block.id));
-                              }
-                            } catch (error) {
-                              handleFirestoreError(error, OperationType.DELETE, `customCategories/${activeCategory}`);
-                            }
-                          } else {
-                            setCustomCategories(prev => {
-                              const updated = prev.filter(c => c.id !== activeCategory);
-                              localStorage.setItem('local_customCategories', JSON.stringify(updated));
-                              return updated;
-                            });
-                            setCustomBlocks(prev => {
-                              const updated = prev.filter(b => b.categoryId !== activeCategory);
-                              localStorage.setItem('local_customBlocks', JSON.stringify(updated));
-                              return updated;
-                            });
-                          }
-                          setActiveCategory(ALL_CATEGORIES[0].id);
-                        }
-                      )}
-                      className="text-red-500/50 hover:text-red-400 p-1 rounded hover:bg-red-500/10 transition-colors"
-                      title="Eliminar Categoría"
-                    >
-                      <Icons.Trash2 size={14} />
-                    </button>
-                  </div>
-                  <button onClick={() => handleAddCustomBlock(activeCategory)} className="text-emerald-400 hover:text-emerald-300 text-xs flex items-center gap-1">
-                    <Icons.Plus size={12} /> Añadir Subcategoría
-                  </button>
-                </div>
-                <div className="flex flex-col gap-2">
-                  {customBlocks.filter(b => b.categoryId === activeCategory).map(block => {
-                    const isSelected = selectedBlocks.some(b => b.id === block.id);
-                    if (editingCustomBlock === block.id) {
-                      return (
-                        <div key={block.id} className="bg-zinc-900 p-3 rounded-lg border border-emerald-500/30 flex flex-col gap-2">
-                          <input 
-                            value={newCustomBlockTitle} 
-                            onChange={e => setNewCustomBlockTitle(e.target.value)}
-                            placeholder="Título"
-                            className="bg-zinc-950 border border-white/10 rounded px-2 py-1 text-sm text-white focus:outline-none"
-                          />
-                          <textarea 
-                            value={newCustomBlockText}
-                            onChange={e => setNewCustomBlockText(e.target.value)}
-                            placeholder="Fragmento de prompt..."
-                            className="bg-zinc-950 border border-white/10 rounded px-2 py-1 text-sm text-zinc-300 focus:outline-none resize-none h-20"
-                          />
-                          <button onClick={saveCustomBlock} className="bg-emerald-500 text-black text-xs py-1 rounded font-medium">Guardar</button>
+                  <div className="flex flex-col gap-4">
+                    {/* Subcategories */}
+                    {customCategories.filter(c => c.parentId === activeCategory).length > 0 && (
+                      <div className="flex flex-col gap-2">
+                        <h4 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider px-1">Subcategorías</h4>
+                        <div className="grid grid-cols-2 gap-2">
+                          {customCategories.filter(c => c.parentId === activeCategory).map(sub => (
+                            <button
+                              key={sub.id}
+                              onClick={() => setActiveCategory(sub.id)}
+                              className="flex items-center gap-2 p-2 rounded-lg bg-zinc-900/50 border border-white/5 hover:border-emerald-500/30 hover:bg-zinc-800 transition-all text-left"
+                            >
+                              <div className="text-emerald-400">
+                                {renderIcon(sub.icon || 'Folder')}
+                              </div>
+                              <span className="text-xs text-zinc-300 truncate">{sub.name}</span>
+                            </button>
+                          ))}
                         </div>
-                      );
-                    }
-                    return (
-                      <div key={block.id} className="flex items-center gap-2">
-                        <button
-                          onClick={() => toggleBlock(block)}
-                          className={`flex-1 px-3 py-2 rounded-lg text-sm border transition-all text-left ${
-                            isSelected 
-                              ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-300' 
-                              : 'bg-zinc-900 border-white/5 text-zinc-300 hover:border-white/20 hover:bg-zinc-800'
-                          }`}
-                        >
-                          {block.title}
-                        </button>
+                      </div>
+                    )}
+
+                    {/* Items */}
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center justify-between px-1">
+                        <h4 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">Items</h4>
                         <button 
-                          onClick={() => {
-                            setEditingCustomBlock(block.id);
-                            setNewCustomBlockTitle(block.title);
-                            setNewCustomBlockText(block.promptText);
-                          }}
-                          className="p-2 text-zinc-500 hover:text-white bg-zinc-900 rounded-lg border border-white/5"
+                          onClick={() => setShowCategoryAndPromptManager(true)}
+                          className="text-[10px] text-emerald-400 hover:text-emerald-300 flex items-center gap-1"
                         >
-                          <Icons.Edit2 size={14} />
-                        </button>
-                        <button 
-                          onClick={async () => {
-                            if (currentUser) {
-                              try {
-                                await deleteDoc(doc(db, 'customBlocks', block.id));
-                              } catch (error) {
-                                handleFirestoreError(error, OperationType.DELETE, `customBlocks/${block.id}`);
-                              }
-                            } else {
-                              setCustomBlocks(prev => {
-                                const updated = prev.filter(b => b.id !== block.id);
-                                localStorage.setItem('local_customBlocks', JSON.stringify(updated));
-                                return updated;
-                              });
-                            }
-                          }}
-                          className="p-2 text-red-500/50 hover:text-red-400 bg-zinc-900 rounded-lg border border-white/5"
-                        >
-                          <Icons.Trash2 size={14} />
+                          <Icons.Edit3 size={10} /> Gestionar
                         </button>
                       </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ) : (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {customBlocks.filter(b => b.categoryId === activeCategory).map(block => {
+                          const isSelected = selectedBlocks.some(b => b.id === block.id);
+                          return (
+                            <motion.button
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
+                              key={block.id}
+                              onClick={() => toggleBlock(block)}
+                              className={`p-2 rounded-lg text-xs font-medium transition-all border text-left flex flex-col gap-1 ${
+                                isSelected 
+                                  ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400 shadow-lg shadow-emerald-500/10' 
+                                  : 'bg-zinc-900/50 border-white/5 text-zinc-400 hover:border-white/20 hover:bg-zinc-800'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between w-full">
+                                <span className="truncate">{block.label || block.title}</span>
+                                {block.isNsfw && (
+                                  <span className="text-[8px] bg-red-500/20 text-red-400 px-1 rounded">NSFW</span>
+                                )}
+                              </div>
+                              <span className="text-[9px] text-zinc-600 truncate opacity-0 group-hover:opacity-100 transition-opacity">
+                                {block.value || block.promptText}
+                              </span>
+                            </motion.button>
+                          );
+                        })}
+                        {customBlocks.filter(b => b.categoryId === activeCategory).length === 0 && (
+                          <div className="col-span-full py-8 flex flex-col items-center justify-center text-zinc-600 border border-dashed border-white/5 rounded-xl">
+                            <Icons.PackageOpen size={24} className="mb-2 opacity-20" />
+                            <p className="text-[10px]">No hay items en esta categoría</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Back button if it's a subcategory */}
+                    {customCategories.find(c => c.id === activeCategory)?.parentId && (
+                      <button 
+                        onClick={() => {
+                          const parentId = customCategories.find(c => c.id === activeCategory)?.parentId;
+                          if (parentId) setActiveCategory(parentId);
+                        }}
+                        className="mt-2 flex items-center justify-center gap-2 p-2 rounded-lg border border-white/5 text-zinc-500 hover:text-white hover:bg-white/5 text-[10px] transition-all"
+                      >
+                        <Icons.ArrowLeft size={12} /> Volver a la categoría superior
+                      </button>
+                    )}
+                  </div>
+                ) : (
               <>
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-sm font-medium text-white flex items-center gap-2">
@@ -1702,8 +2242,8 @@ export default function App() {
         {/* Center Column: Workspace */}
         <section className="flex-1 flex flex-col min-w-0 bg-[#0A0A0A]">
           {/* Global Toggles */}
-          <div className="px-6 py-3 border-b border-white/10 flex items-center gap-6 bg-zinc-900/30">
-            {news.length > 0 && (
+          {news.length > 0 && (
+            <div className="px-6 py-3 border-b border-white/10 flex items-center gap-6 bg-zinc-900/30">
               <div className="flex-1 overflow-hidden">
                 <motion.div 
                   animate={{ x: [0, -1000] }}
@@ -1712,23 +2252,14 @@ export default function App() {
                 >
                   {news.map(item => (
                     <div key={item.id} className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest">
-                      <span className="text-emerald-400">● NOTICIA:</span>
+                      <span className="text-emerald-400">● NEWS:</span>
                       <span className="text-zinc-400">{item.title}</span>
                     </div>
                   ))}
                 </motion.div>
               </div>
-            )}
-            
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 px-3 py-1 bg-zinc-900/50 rounded-full border border-white/5">
-                <Icons.User size={12} className="text-zinc-500" />
-                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-tighter">
-                  {currentUser?.isSubscribed ? 'Plan Premium' : 'Plan Gratuito'}
-                </span>
-              </div>
             </div>
-          </div>
+          )}
 
           {(workMode === 'prompting' || workMode === 'influencer') && (
             <>
@@ -1814,10 +2345,9 @@ export default function App() {
                             <span className="truncate max-w-[200px]">{inst}</span>
                             <button 
                               onClick={() => {
-                                const newInst = window.prompt('Editar instrucción:', inst);
-                                if (newInst !== null && newInst.trim() !== '') {
-                                  setCustomInstructions(prev => prev.map((item, i) => i === idx ? newInst.trim() : item));
-                                }
+                                setEditingInstructionIndex(idx);
+                                setEditingInstructionText(inst);
+                                setShowEditInstructionModal(true);
                               }}
                               className="text-zinc-500 hover:text-blue-400 transition-colors ml-1 opacity-100 md:opacity-0 md:group-hover:opacity-100"
                             >
@@ -1894,7 +2424,9 @@ export default function App() {
                                 Devuelve ÚNICAMENTE el prompt optimizado.`,
                               });
                               if (response.text) {
-                                setCompiledPrompt(response.text.trim());
+                                const optimized = response.text.trim();
+                                setCompiledPrompt(optimized);
+                                setPromptSegments([{ text: optimized, categoryId: 'custom' }]);
                                 setIsEditingPrompt(true);
                               }
                             } catch (error) {
@@ -1923,16 +2455,36 @@ export default function App() {
                   <div className="flex items-center gap-4">
                     {!isBannedWordsLocked && (
                       <span className="text-xs text-red-400 font-medium flex items-center gap-1 animate-pulse">
-                        <Icons.AlertTriangle size={12} /> Prompting pausado (Candado abierto)
+                        <Icons.AlertTriangle size={12} /> Editing banned words
                       </span>
                     )}
                     {isCompiling && (
                       <div className="flex items-center gap-2 text-xs text-emerald-400">
                         <Icons.Loader2 size={12} className="animate-spin" />
-                        Compilando...
+                        Compiling...
                       </div>
                     )}
                     
+                    {/* Generation Mode Toggle */}
+                    <button 
+                      onClick={() => {
+                        const newValue = !isManualGeneration;
+                        setIsManualGeneration(newValue);
+                        localStorage.setItem('scenecraft_manual_gen', JSON.stringify(newValue));
+                      }}
+                      className={`flex items-center gap-2 px-2 py-1 rounded border transition-all ${
+                        isManualGeneration 
+                          ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/20' 
+                          : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'
+                      }`}
+                      title={isManualGeneration ? 'Cambiar a Generación Automática' : 'Cambiar a Generación Manual'}
+                    >
+                      <div className={`w-1.5 h-1.5 rounded-full ${isManualGeneration ? 'bg-amber-400' : 'bg-emerald-400'}`} />
+                      <span className="text-[10px] font-bold uppercase tracking-wider">
+                        {isManualGeneration ? 'Manual' : 'Auto'}
+                      </span>
+                    </button>
+
                     {/* IA Target Dropdown */}
                     <div className="flex items-center gap-2 bg-zinc-900/50 px-2 py-1 rounded border border-white/5">
                       <Icons.Settings size={12} className="text-zinc-500" />
@@ -1965,10 +2517,10 @@ export default function App() {
                     <button 
                       onClick={() => setShowSessionHistory(true)}
                       className="p-1.5 text-zinc-500 hover:text-emerald-400 transition-colors flex items-center gap-1.5 bg-zinc-900/50 rounded-lg border border-white/5"
-                      title="Historial de Sesión (Temporal)"
+                      title="Session History (Temporary)"
                     >
                       <Icons.History size={14} />
-                      <span className="text-[10px] font-bold uppercase tracking-wider">Historial</span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider">Session History</span>
                     </button>
                   </div>
                 </div>
@@ -1977,7 +2529,11 @@ export default function App() {
                   {isEditingPrompt ? (
                     <textarea
                       value={compiledPrompt}
-                      onChange={(e) => setCompiledPrompt(e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setCompiledPrompt(val);
+                        setPromptSegments([{ text: val, categoryId: 'custom' }]);
+                      }}
                       onBlur={() => setIsEditingPrompt(false)}
                       autoFocus
                       className="flex-1 w-full bg-transparent p-6 text-zinc-300 font-mono text-sm resize-none focus:outline-none custom-scrollbar leading-relaxed"
@@ -3172,13 +3728,13 @@ export default function App() {
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-xs font-semibold uppercase tracking-wider text-red-400 flex items-center gap-2">
                 <Icons.ShieldAlert size={14} />
-                Palabras Prohibidas
+                Banned Words
               </h2>
               <button 
                 onClick={() => setIsBannedWordsLocked(!isBannedWordsLocked)}
                 className={`p-1.5 rounded-md transition-colors ${isBannedWordsLocked ? 'text-zinc-400 hover:text-white hover:bg-zinc-800' : 'text-red-400 bg-red-400/10'}`}
               >
-                {isBannedWordsLocked ? <Icons.Lock size={14} /> : <Icons.Unlock size={14} />}
+                {isBannedWordsLocked ? <Icons.Plus size={14} /> : <Icons.Lock size={14} />}
               </button>
             </div>
             
@@ -3188,7 +3744,7 @@ export default function App() {
                   type="text"
                   value={bannedWordInput}
                   onChange={e => setBannedWordInput(e.target.value)}
-                  placeholder="Ej: baby, infantil..."
+                  placeholder="e.g. baby, child..."
                   className="flex-1 bg-zinc-900 border border-white/10 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-red-400/50"
                 />
                 <button type="submit" className="bg-zinc-800 text-zinc-300 px-2 rounded hover:bg-zinc-700">
@@ -3209,7 +3765,7 @@ export default function App() {
                 </span>
               ))}
               {bannedWords.length === 0 && isBannedWordsLocked && (
-                <span className="text-zinc-600 text-xs italic">Ninguna palabra prohibida.</span>
+                <span className="text-zinc-600 text-xs italic">No banned words.</span>
               )}
             </div>
           </div>
@@ -3309,7 +3865,7 @@ export default function App() {
               <div className="p-4 border-b border-white/10 flex items-center justify-between bg-[#0A0A0A]">
                 <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                   <Icons.Save size={20} className="text-emerald-400" />
-                  Guardar en Biblioteca
+                  Save to Library
                 </h2>
                 <button onClick={() => setShowSaveHistoryModal(false)} className="text-zinc-400 hover:text-white p-1">
                   <Icons.X size={20} />
@@ -3317,13 +3873,13 @@ export default function App() {
               </div>
               <div className="p-6 flex flex-col gap-4">
                 <div className="flex flex-col gap-2">
-                  <label className="text-sm font-medium text-zinc-300">Título del Prompt</label>
+                  <label className="text-sm font-medium text-zinc-300">Prompt Title</label>
                   <div className="flex gap-2">
                     <input 
                       type="text" 
                       value={saveHistoryTitle}
                       onChange={e => setSaveHistoryTitle(e.target.value)}
-                      placeholder="Ej. Retrato Cyberpunk Neón"
+                      placeholder="e.g. Cyberpunk Neon Portrait"
                       className="flex-1 bg-zinc-900 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-emerald-500/50"
                       autoFocus
                     />
@@ -3331,7 +3887,7 @@ export default function App() {
                       onClick={generateHistoryTitle}
                       disabled={isGeneratingHistoryTitle}
                       className="px-3 py-2 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 rounded-xl transition-colors disabled:opacity-50 flex items-center justify-center"
-                      title="Generar título con IA"
+                      title="Suggest title"
                     >
                       {isGeneratingHistoryTitle ? <Icons.Loader2 size={18} className="animate-spin" /> : <Icons.Wand2 size={18} />}
                     </button>
@@ -3346,13 +3902,13 @@ export default function App() {
                   onClick={() => setShowSaveHistoryModal(false)}
                   className="px-4 py-2 rounded-lg text-sm font-medium text-zinc-300 hover:bg-zinc-800 transition-colors"
                 >
-                  Cancelar
+                  Cancel
                 </button>
                 <button 
                   onClick={confirmSaveHistory}
                   className="px-4 py-2 rounded-lg text-sm font-medium bg-emerald-500 text-black hover:bg-emerald-400 transition-colors"
                 >
-                  Guardar
+                  Save
                 </button>
               </div>
             </motion.div>
@@ -3374,7 +3930,7 @@ export default function App() {
                 <div className="flex items-center gap-4 flex-1 w-full">
                   <h2 className="text-lg font-semibold text-white flex items-center gap-2 whitespace-nowrap">
                     <Icons.BookMarked size={20} className="text-emerald-400" />
-                    Mi Biblioteca
+                    My Library
                   </h2>
                   <div className="relative flex-1 max-w-md">
                     <Icons.Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
@@ -3382,7 +3938,7 @@ export default function App() {
                       type="text"
                       value={blockSearch} // Reuse blockSearch for history search
                       onChange={(e) => setBlockSearch(e.target.value)}
-                      placeholder="Buscar en biblioteca..."
+                      placeholder="Search in library..."
                       className="w-full bg-zinc-900 border border-white/10 rounded-lg pl-9 pr-4 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500/50 transition-all"
                     />
                   </div>
@@ -3393,15 +3949,15 @@ export default function App() {
                     className="flex items-center gap-2 px-3 py-1.5 bg-zinc-900 border border-red-500/20 text-red-400 text-xs rounded-lg hover:bg-red-500/10 transition-colors"
                   >
                     <Icons.Trash2 size={14} />
-                    Papelera
+                    Trash
                   </button>
                   <select 
                     value={historySort}
                     onChange={(e) => setHistorySort(e.target.value as any)}
                     className="bg-zinc-900 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500/50 transition-all cursor-pointer flex-1 md:flex-none"
                   >
-                    <option value="date">Fecha</option>
-                    <option value="title">Título</option>
+                    <option value="date">Date</option>
+                    <option value="title">Title</option>
                   </select>
                   <button onClick={() => setShowHistory(false)} className="text-zinc-400 hover:text-white p-1">
                     <Icons.X size={20} />
@@ -3411,7 +3967,7 @@ export default function App() {
               <div className="flex-1 overflow-y-auto p-6 custom-scrollbar grid grid-cols-1 md:grid-cols-2 gap-4">
                 {promptHistory.length === 0 ? (
                   <div className="col-span-full text-center py-12 text-zinc-500">
-                    No has guardado ningún prompt todavía.
+                    You haven't saved any prompts yet.
                   </div>
                 ) : (
                   promptHistory
@@ -3482,12 +4038,12 @@ export default function App() {
                         {session.compiledPrompt}
                       </p>
                       <div className="flex flex-wrap gap-1 mt-auto pt-2">
-                        {session.selectedBlocks.slice(0, 3).map(b => (
+                        {(Array.isArray(session.selectedBlocks) ? session.selectedBlocks : []).slice(0, 3).map(b => (
                           <span key={b.id} className="text-[10px] bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded-full">
                             {b.label}
                           </span>
                         ))}
-                        {session.selectedBlocks.length > 3 && (
+                        {Array.isArray(session.selectedBlocks) && session.selectedBlocks.length > 3 && (
                           <span className="text-[10px] bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded-full">
                             +{session.selectedBlocks.length - 3} más
                           </span>
@@ -3654,7 +4210,7 @@ export default function App() {
               <div className="p-4 border-b border-white/10 flex items-center justify-between bg-[#0A0A0A]">
                 <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                   <Icons.GitMerge size={20} className="text-emerald-400" />
-                  Integrar Recreación
+                  {t('Integrate Recreation')}
                 </h2>
                 <button onClick={() => setShowComparisonModal(false)} className="text-zinc-400 hover:text-white p-1">
                   <Icons.X size={20} />
@@ -3663,13 +4219,13 @@ export default function App() {
               <div className="flex-1 overflow-y-auto p-6 custom-scrollbar flex flex-col gap-6">
                 <div className="grid grid-cols-2 gap-6">
                   <div className="flex flex-col gap-2">
-                    <h3 className="text-sm font-semibold text-zinc-400">Prompt Actual (Prompting)</h3>
+                    <h3 className="text-sm font-semibold text-zinc-400">{t('Current Prompt (Prompting)')}</h3>
                     <div className="bg-zinc-900 border border-white/5 rounded-xl p-4 text-sm text-zinc-300 min-h-[150px]">
-                      {compiledPrompt || <span className="text-zinc-600 italic">No hay prompt actual...</span>}
+                      {compiledPrompt || <span className="text-zinc-600 italic">{t('No current prompt...')}</span>}
                     </div>
                   </div>
                   <div className="flex flex-col gap-2">
-                    <h3 className="text-sm font-semibold text-emerald-400">Prompt Extraído (Recreación)</h3>
+                    <h3 className="text-sm font-semibold text-emerald-400">{t('Extracted Prompt (Recreation)')}</h3>
                     <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-4 text-sm text-emerald-300 min-h-[150px]">
                       {extractedPrompt}
                     </div>
@@ -3677,14 +4233,14 @@ export default function App() {
                 </div>
 
                 <div className="bg-zinc-900 border border-white/10 rounded-xl p-6">
-                  <h3 className="text-sm font-semibold text-white mb-4">Opciones de Integración</h3>
+                  <h3 className="text-sm font-semibold text-white mb-4">{t('Integration Options')}</h3>
                   <div className="flex flex-col gap-3">
                     <button 
                       onClick={() => {
                         const newBlock: Block = {
                           id: `recreation-${Date.now()}`,
                           categoryId: 'custom',
-                          label: 'Recreación de Imagen',
+                          label: t('Image Recreation'),
                           value: extractedPrompt || '',
                           isCustom: true
                         };
@@ -3699,8 +4255,8 @@ export default function App() {
                         <Icons.Plus size={20} />
                       </div>
                       <div>
-                        <div className="font-medium text-white mb-1">Añadir (Combinar)</div>
-                        <div className="text-xs text-zinc-400">Agrega el prompt extraído como un nuevo bloque en la Estructura de la Escena. La IA lo mezclará con tu prompt actual.</div>
+                        <div className="font-medium text-white mb-1">{t('Add (Combine)')}</div>
+                        <div className="text-xs text-zinc-400">{t('Adds the extracted prompt as a new block in the Scene Structure. The AI will mix it with your current prompt.')}</div>
                       </div>
                     </button>
 
@@ -3709,13 +4265,13 @@ export default function App() {
                         const newBlock: Block = {
                           id: `recreation-${Date.now()}`,
                           categoryId: 'custom',
-                          label: 'Detalles de Recreación',
-                          value: `Detalles secundarios de imagen: ${extractedPrompt}`,
+                          label: t('Recreation Details'),
+                          value: `Secondary image details: ${extractedPrompt}`,
                           isCustom: true
                         };
                         setUndoStack(prev => [...prev, { blocks: selectedBlocks, instructions: customInstructions }]);
                         setSelectedBlocks(prev => [...prev, newBlock]);
-                        setCustomInstructions(prev => [...prev, `Prioriza mi prompt actual, pero añade detalles que no entren en conflicto del bloque de Detalles de Recreación.`]);
+                        setCustomInstructions(prev => [...prev, `Prioritize my current prompt, but add details that do not conflict from the Recreation Details block.`]);
                         setShowComparisonModal(false);
                         setWorkMode('prompting');
                       }}
@@ -3725,8 +4281,8 @@ export default function App() {
                         <Icons.Shield size={20} />
                       </div>
                       <div>
-                        <div className="font-medium text-white mb-1">Usar parámetros de Prompt Final</div>
-                        <div className="text-xs text-zinc-400">Agrega la imagen como bloque secundario. Mantiene tu estructura actual y solo añade detalles que no contradigan lo que ya elegiste.</div>
+                        <div className="font-medium text-white mb-1">{t('Use Final Prompt parameters')}</div>
+                        <div className="text-xs text-zinc-400">{t('Adds the image as a secondary block. Maintains your current structure and only adds details that do not contradict what you already chose.')}</div>
                       </div>
                     </button>
 
@@ -3735,13 +4291,13 @@ export default function App() {
                         const newBlock: Block = {
                           id: `recreation-${Date.now()}`,
                           categoryId: 'custom',
-                          label: 'Recreación Exacta',
+                          label: t('Exact Recreation'),
                           value: extractedPrompt || '',
                           isCustom: true
                         };
                         setUndoStack(prev => [...prev, { blocks: selectedBlocks, instructions: customInstructions }]);
                         setSelectedBlocks([newBlock]);
-                        setCustomInstructions([`Recrea esta imagen exactamente basándote en el bloque de Recreación Exacta.`]);
+                        setCustomInstructions([`Recreate this image exactly based on the Exact Recreation block.`]);
                         setShowComparisonModal(false);
                         setWorkMode('prompting');
                       }}
@@ -3751,8 +4307,8 @@ export default function App() {
                         <Icons.Image size={20} />
                       </div>
                       <div>
-                        <div className="font-medium text-emerald-400 mb-1">Usar parámetros de la Recreación</div>
-                        <div className="text-xs text-emerald-500/70">Reemplaza tu estructura actual completamente con un único bloque que contiene la descripción de la imagen subida.</div>
+                        <div className="font-medium text-emerald-400 mb-1">{t('Use Recreation parameters')}</div>
+                        <div className="text-xs text-emerald-500/70">{t('Completely replaces your current structure with a single block containing the description of the uploaded image.')}</div>
                       </div>
                     </button>
                   </div>
@@ -3777,22 +4333,22 @@ export default function App() {
               <div className="p-4 border-b border-white/10 flex items-center justify-between bg-[#0A0A0A]">
                 <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                   <Icons.Eraser size={20} className="text-emerald-400" />
-                  Limpiar Prompt
+                  {t('Clean Prompt')}
                 </h2>
                 <button onClick={() => setShowCleanModal(false)} className="text-zinc-400 hover:text-white p-1">
                   <Icons.X size={20} />
                 </button>
               </div>
               <div className="p-6 flex flex-col gap-4">
-                <p className="text-sm text-zinc-400">Selecciona los elementos que deseas remover del prompt extraído:</p>
+                <p className="text-sm text-zinc-400">{t('Select the elements you want to remove from the extracted prompt:')}</p>
                 <div className="flex flex-col gap-2">
                   {[
-                    { id: 'tattoos', label: 'Tatuajes' },
-                    { id: 'piercings', label: 'Piercings' },
-                    { id: 'hair', label: 'Detalles del cabello (color, estilo)' },
-                    { id: 'facial', label: 'Rasgos faciales específicos' },
-                    { id: 'clothing', label: 'Ropa específica' },
-                    { id: 'background', label: 'Fondo / Entorno' }
+                    { id: 'tattoos', label: t('Tattoos') },
+                    { id: 'piercings', label: t('Piercings') },
+                    { id: 'hair', label: t('Hair details (color, style)') },
+                    { id: 'facial', label: t('Specific facial features') },
+                    { id: 'clothing', label: t('Specific clothing') },
+                    { id: 'background', label: t('Background / Environment') }
                   ].map(option => (
                     <label key={option.id} className="flex items-center gap-3 p-3 rounded-xl border border-white/5 bg-zinc-900/50 hover:bg-zinc-800 cursor-pointer transition-colors">
                       <input 
@@ -3822,7 +4378,7 @@ export default function App() {
                     }}
                     className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors"
                   >
-                    {cleanOptions.length === 6 ? 'Deseleccionar Todos' : 'Seleccionar Todos'}
+                    {cleanOptions.length === 6 ? t('Deselect All') : t('Select All')}
                   </button>
                 </div>
               </div>
@@ -3831,7 +4387,7 @@ export default function App() {
                   onClick={() => setShowCleanModal(false)}
                   className="px-4 py-2 rounded-lg text-sm font-medium text-zinc-300 hover:bg-zinc-800 transition-colors"
                 >
-                  Cancelar
+                  {t('Cancel')}
                 </button>
                 <button 
                   onClick={async () => {
@@ -3844,11 +4400,11 @@ export default function App() {
                       const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
                       const response = await ai.models.generateContent({
                         model: 'gemini-3.1-flash-preview',
-                        contents: `Limpia el siguiente prompt de imagen eliminando cualquier mención a los siguientes elementos: ${cleanOptions.join(', ')}.
+                        contents: `Clean the following image prompt by removing any mention of the following elements: ${cleanOptions.join(', ')}.
                         
-                        Prompt original: "${extractedPrompt}"
+                        Original Prompt: "${extractedPrompt}"
                         
-                        Devuelve SOLO el prompt limpio en el mismo idioma que el original, sin introducciones ni explicaciones. Asegúrate de que la gramática siga siendo correcta después de eliminar los elementos.`,
+                        Return ONLY the clean prompt in the same language as the original, without introductions or explanations. Ensure that the grammar remains correct after removing the elements.`,
                       });
                       
                       setExtractedPrompt(response.text || extractedPrompt);
@@ -3869,7 +4425,7 @@ export default function App() {
                   className="px-4 py-2 rounded-lg text-sm font-medium bg-emerald-500 text-black hover:bg-emerald-400 disabled:opacity-50 disabled:hover:bg-emerald-500 transition-colors flex items-center gap-2"
                 >
                   {isCleaningPrompt ? <Icons.Loader2 size={16} className="animate-spin" /> : null}
-                  {isCleaningPrompt ? 'Limpiando...' : 'Limpiar'}
+                  {isCleaningPrompt ? t('Cleaning...') : t('Clean')}
                 </button>
               </div>
             </motion.div>
@@ -3891,7 +4447,7 @@ export default function App() {
               <div className="p-4 border-b border-white/10 flex items-center justify-between bg-[#0A0A0A]">
                 <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                   <Icons.Upload size={20} className="text-emerald-400" />
-                  Compartir Prompt
+                  {t('Share Prompt')}
                 </h2>
                 <button onClick={() => setShowShareModal(false)} className="text-zinc-400 hover:text-white p-1">
                   <Icons.X size={20} />
@@ -3899,31 +4455,31 @@ export default function App() {
               </div>
               <div className="p-6 flex flex-col gap-4">
                 <div className="flex flex-col gap-2">
-                  <label className="text-xs text-zinc-400">Título del Prompt:</label>
+                  <label className="text-xs text-zinc-400">{t('Prompt Title:')}</label>
                   <input 
                     type="text" 
                     value={shareTitle}
                     onChange={(e) => setShareTitle(e.target.value)}
-                    placeholder="Ej: Retrato Cyberpunk Neón"
+                    placeholder={t('Ex: Cyberpunk Neon Portrait')}
                     className="w-full bg-black/30 border border-white/10 rounded-lg p-2 text-sm text-white focus:outline-none focus:border-emerald-500/50"
                   />
                 </div>
                 <div className="flex flex-col gap-2">
-                  <label className="text-xs text-zinc-400">Prompt (Inglés):</label>
+                  <label className="text-xs text-zinc-400">{t('Prompt (English):')}</label>
                   <textarea 
                     value={sharePrompt}
                     onChange={(e) => setSharePrompt(e.target.value)}
-                    placeholder="El prompt que deseas compartir..."
+                    placeholder={t('The prompt you want to share...')}
                     className="w-full bg-black/30 border border-white/10 rounded-lg p-2 text-sm text-white focus:outline-none focus:border-emerald-500/50 min-h-[100px] resize-none font-mono"
                   />
                 </div>
                 <div className="flex flex-col gap-2">
-                  <label className="text-xs text-zinc-400">URL de Imagen de Ejemplo (Opcional):</label>
+                  <label className="text-xs text-zinc-400">{t('Example Image URL (Optional):')}</label>
                   <input 
                     type="text" 
                     value={shareImage}
                     onChange={(e) => setShareImage(e.target.value)}
-                    placeholder="https://ejemplo.com/imagen.jpg"
+                    placeholder="https://example.com/image.jpg"
                     className="w-full bg-black/30 border border-white/10 rounded-lg p-2 text-sm text-white focus:outline-none focus:border-emerald-500/50"
                   />
                 </div>
@@ -3933,7 +4489,7 @@ export default function App() {
                   onClick={() => setShowShareModal(false)}
                   className="px-4 py-2 rounded-lg text-sm font-medium text-zinc-300 hover:bg-zinc-800 transition-colors"
                 >
-                  Cancelar
+                  {t('Cancel')}
                 </button>
                 <button 
                   onClick={() => {
@@ -3954,7 +4510,7 @@ export default function App() {
                   disabled={!shareTitle || !sharePrompt}
                   className="px-4 py-2 rounded-lg text-sm font-medium bg-emerald-500 text-black hover:bg-emerald-400 disabled:opacity-50 disabled:hover:bg-emerald-500 transition-colors"
                 >
-                  Publicar
+                  {t('Publish')}
                 </button>
               </div>
             </motion.div>
@@ -4024,7 +4580,7 @@ export default function App() {
                     onClick={() => handleCopyPrompt(expandedPost.prompt)}
                     className="flex-1 px-4 py-3 rounded-xl text-sm font-medium bg-zinc-800 text-white hover:bg-zinc-700 transition-colors flex items-center justify-center gap-2"
                   >
-                    <Icons.Copy size={18} /> Copiar Prompt
+                    <Icons.Copy size={18} /> {t('Copy Prompt')}
                   </button>
                   <button 
                     onClick={() => {
@@ -4036,7 +4592,7 @@ export default function App() {
                     }}
                     className="flex-1 px-4 py-3 rounded-xl text-sm font-medium bg-emerald-500 text-black hover:bg-emerald-400 transition-colors flex items-center justify-center gap-2"
                   >
-                    <Icons.Wand2 size={18} /> Usar Prompt
+                    <Icons.Wand2 size={18} /> {t('Use Prompt')}
                   </button>
                 </div>
               </div>
@@ -4063,7 +4619,7 @@ export default function App() {
                   </div>
                   <div>
                     <h2 className="text-xl font-semibold text-white">{selectedUser}</h2>
-                    <p className="text-sm text-zinc-400">Libro de Prompts</p>
+                    <p className="text-sm text-zinc-400">{t('Prompt Book')}</p>
                   </div>
                 </div>
                 <button onClick={() => setShowUserProfileModal(false)} className="text-zinc-400 hover:text-white p-2">
@@ -4096,7 +4652,7 @@ export default function App() {
                             }}
                             className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors flex items-center gap-1"
                           >
-                            <Icons.ArrowRight size={14} /> Usar Prompt
+                            <Icons.ArrowRight size={14} /> {t('Use Prompt')}
                           </button>
                         </div>
                       </div>
@@ -4104,7 +4660,7 @@ export default function App() {
                   ))}
                   {communityFeed.filter(post => post.user === selectedUser).length === 0 && (
                     <div className="col-span-full py-8 text-center text-zinc-500">
-                      Este usuario aún no ha compartido prompts.
+                      {t('This user hasn\'t shared any prompts yet.')}
                     </div>
                   )}
                 </div>
@@ -4128,7 +4684,7 @@ export default function App() {
               <div className="p-4 border-b border-white/10 flex items-center justify-between bg-[#0A0A0A]">
                 <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                   <Icons.PlusCircle size={20} className="text-orange-400" />
-                  Crear Nuevo Tema
+                  {t('Create New Topic')}
                 </h2>
                 <button onClick={() => setShowCreateTopicModal(false)} className="text-zinc-400 hover:text-white p-1">
                   <Icons.X size={20} />
@@ -4136,21 +4692,21 @@ export default function App() {
               </div>
               <div className="p-6 flex flex-col gap-4">
                 <div className="flex flex-col gap-2">
-                  <label className="text-xs text-zinc-500 uppercase tracking-wider font-semibold">Título del Tema</label>
+                  <label className="text-xs text-zinc-500 uppercase tracking-wider font-semibold">{t('Topic Title')}</label>
                   <input 
                     type="text" 
                     value={newTopicTitle}
                     onChange={(e) => setNewTopicTitle(e.target.value)}
-                    placeholder="Ej: Proyecto Futurista, Sesión de Lluvia..."
+                    placeholder={t('Ex: Futuristic Project, Rain Session...')}
                     className="w-full bg-black/30 border border-white/10 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-orange-500/50 transition-all"
                   />
                 </div>
                 <div className="flex flex-col gap-2">
-                  <label className="text-xs text-zinc-500 uppercase tracking-wider font-semibold">Descripción</label>
+                  <label className="text-xs text-zinc-500 uppercase tracking-wider font-semibold">{t('Description')}</label>
                   <textarea 
                     value={newTopicDescription}
                     onChange={(e) => setNewTopicDescription(e.target.value)}
-                    placeholder="Breve descripción de lo que se discutirá..."
+                    placeholder={t('Brief description of what will be discussed...')}
                     className="w-full bg-black/30 border border-white/10 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-orange-500/50 transition-all resize-none h-24"
                   />
                 </div>
@@ -4160,7 +4716,7 @@ export default function App() {
                   onClick={() => setShowCreateTopicModal(false)}
                   className="px-4 py-2 rounded-lg text-sm font-medium text-zinc-300 hover:bg-zinc-800 transition-colors"
                 >
-                  Cancelar
+                  {t('Cancel')}
                 </button>
                 <button 
                   onClick={() => {
@@ -4180,7 +4736,7 @@ export default function App() {
                   }}
                   className="px-6 py-2 rounded-lg text-sm font-medium bg-orange-500 text-black hover:bg-orange-400 transition-colors shadow-lg shadow-orange-500/20"
                 >
-                  Crear Tema
+                  {t('Create Topic')}
                 </button>
               </div>
             </motion.div>
@@ -4202,7 +4758,7 @@ export default function App() {
               <div className="p-4 border-b border-white/10 flex items-center justify-between bg-[#0A0A0A]">
                 <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                   <Icons.Newspaper size={20} className="text-emerald-400" />
-                  Publicar Noticia
+                  {t('Publish News')}
                 </h2>
                 <button onClick={() => setShowNewsModal(false)} className="text-zinc-400 hover:text-white p-1">
                   <Icons.X size={20} />
@@ -4210,21 +4766,21 @@ export default function App() {
               </div>
               <div className="p-6 flex flex-col gap-4">
                 <div className="flex flex-col gap-2">
-                  <label className="text-xs text-zinc-500 uppercase tracking-wider font-semibold">Título</label>
+                  <label className="text-xs text-zinc-500 uppercase tracking-wider font-semibold">{t('Title')}</label>
                   <input 
                     type="text" 
                     value={newNewsTitle}
                     onChange={(e) => setNewNewsTitle(e.target.value)}
-                    placeholder="Título de la noticia..."
+                    placeholder={t('News title...')}
                     className="w-full bg-black/30 border border-white/10 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-emerald-500/50 transition-all"
                   />
                 </div>
                 <div className="flex flex-col gap-2">
-                  <label className="text-xs text-zinc-500 uppercase tracking-wider font-semibold">Contenido</label>
+                  <label className="text-xs text-zinc-500 uppercase tracking-wider font-semibold">{t('Content')}</label>
                   <textarea 
                     value={newNewsContent}
                     onChange={(e) => setNewNewsContent(e.target.value)}
-                    placeholder="Escribe el contenido aquí..."
+                    placeholder={t('Write the content here...')}
                     rows={4}
                     className="w-full bg-black/30 border border-white/10 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-emerald-500/50 transition-all resize-none"
                   />
@@ -4235,7 +4791,7 @@ export default function App() {
                   onClick={() => setShowNewsModal(false)}
                   className="px-4 py-2 rounded-lg text-sm font-medium text-zinc-300 hover:bg-zinc-800 transition-colors"
                 >
-                  Cancelar
+                  {t('Cancel')}
                 </button>
                 <button 
                   onClick={async () => {
@@ -4261,7 +4817,7 @@ export default function App() {
                   }}
                   className="px-6 py-2 rounded-lg text-sm font-medium bg-emerald-500 text-black hover:bg-emerald-400 transition-colors shadow-lg shadow-emerald-500/20"
                 >
-                  Publicar
+                  {t('Publish')}
                 </button>
               </div>
             </motion.div>
@@ -4282,21 +4838,21 @@ export default function App() {
               <div className="p-4 border-b border-white/10 flex items-center justify-between bg-[#0A0A0A]">
                 <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                   <Icons.UserPlus size={20} className="text-orange-400" />
-                  Invitar al Tema
+                  {t('Invite to Topic')}
                 </h2>
                 <button onClick={() => setShowInviteModal(false)} className="text-zinc-400 hover:text-white p-1">
                   <Icons.X size={20} />
                 </button>
               </div>
               <div className="p-6 flex flex-col gap-4">
-                <p className="text-sm text-zinc-400">Ingresa el correo electrónico o el usuario único (Nombre#1234) para invitar.</p>
+                <p className="text-sm text-zinc-400">{t('Enter email or unique user (Name#1234) to invite.')}</p>
                 <div className="flex flex-col gap-2">
-                  <label className="text-xs text-zinc-500 uppercase tracking-wider font-semibold">Correo o Usuario#Hashtag</label>
+                  <label className="text-xs text-zinc-500 uppercase tracking-wider font-semibold">{t('Email or User#Hashtag')}</label>
                   <input 
                     type="text" 
                     value={inviteInput}
                     onChange={(e) => setInviteInput(e.target.value)}
-                    placeholder="Ej: usuario@gmail.com o Nombre#1234"
+                    placeholder={t('Ex: user@gmail.com or Name#1234')}
                     className="w-full bg-black/30 border border-white/10 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-orange-500/50 transition-all"
                     autoFocus
                   />
@@ -4307,13 +4863,13 @@ export default function App() {
                   onClick={() => setShowInviteModal(false)}
                   className="px-4 py-2 rounded-lg text-sm font-medium text-zinc-300 hover:bg-zinc-800 transition-colors"
                 >
-                  Cancelar
+                  {t('Cancel')}
                 </button>
                 <button 
                   onClick={() => handleInviteUser(inviteInput)}
                   className="px-6 py-2 rounded-lg text-sm font-medium bg-orange-500 text-black hover:bg-orange-400 transition-colors shadow-lg shadow-orange-500/20"
                 >
-                  Enviar Invitación
+                  {t('Send Invitation')}
                 </button>
               </div>
             </motion.div>
@@ -4334,21 +4890,21 @@ export default function App() {
               <div className="p-4 border-b border-white/10 flex items-center justify-between bg-[#0A0A0A]">
                 <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                   <Icons.User size={20} className="text-rose-400" />
-                  Medida de Busto
+                  {t('Bust Measurement')}
                 </h2>
                 <button onClick={() => setShowBustModal(false)} className="text-zinc-400 hover:text-white p-1">
                   <Icons.X size={20} />
                 </button>
               </div>
               <div className="p-6 flex flex-col gap-4">
-                <p className="text-sm text-zinc-400">Especifica la medida del busto o "Bra Cup" para mayor consistencia en el cuerpo.</p>
+                <p className="text-sm text-zinc-400">{t('Specify bust measurement or "Bra Cup" for better body consistency.')}</p>
                 <div className="flex flex-col gap-2">
-                  <label className="text-xs text-zinc-500 uppercase tracking-wider font-semibold">Bra Cup / Medida</label>
+                  <label className="text-xs text-zinc-500 uppercase tracking-wider font-semibold">{t('Bra Cup / Measurement')}</label>
                   <input 
                     type="text" 
                     value={bustSize}
                     onChange={(e) => setBustSize(e.target.value)}
-                    placeholder="Ej: 34C, Large, DD cup..."
+                    placeholder={t('Ex: 34C, Large, DD cup...')}
                     className="w-full bg-black/30 border border-white/10 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-rose-500/50 transition-all"
                     autoFocus
                     onKeyDown={(e) => e.key === 'Enter' && confirmBustSize()}
@@ -4360,13 +4916,13 @@ export default function App() {
                   onClick={() => setShowBustModal(false)}
                   className="px-4 py-2 rounded-lg text-sm font-medium text-zinc-300 hover:bg-zinc-800 transition-colors"
                 >
-                  Cancelar
+                  {t('Cancel')}
                 </button>
                 <button 
                   onClick={confirmBustSize}
                   className="px-6 py-2 rounded-lg text-sm font-medium bg-rose-500 text-white hover:bg-rose-400 transition-colors shadow-lg shadow-rose-500/20"
                 >
-                  Confirmar
+                  {t('Confirm')}
                 </button>
               </div>
             </motion.div>
@@ -4388,21 +4944,21 @@ export default function App() {
               <div className="p-4 border-b border-white/10 flex items-center justify-between bg-[#0A0A0A]">
                 <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                   <Icons.Smartphone size={20} className="text-emerald-400" />
-                  Detalles del Celular
+                  {t('Smartphone Details')}
                 </h2>
                 <button onClick={() => setShowSmartphoneModal(false)} className="text-zinc-400 hover:text-white p-1">
                   <Icons.X size={20} />
                 </button>
               </div>
               <div className="p-6 flex flex-col gap-4">
-                <p className="text-sm text-zinc-400">¿Qué modelo de celular o smartphone te gustaría que aparezca en el prompt?</p>
+                <p className="text-sm text-zinc-400">{t('What smartphone model would you like to appear in the prompt?')}</p>
                 <div className="flex flex-col gap-2">
-                  <label className="text-xs text-zinc-500 uppercase tracking-wider font-semibold">Modelo / Marca</label>
+                  <label className="text-xs text-zinc-500 uppercase tracking-wider font-semibold">{t('Model / Brand')}</label>
                   <input 
                     type="text" 
                     value={smartphoneModel}
                     onChange={(e) => setSmartphoneModel(e.target.value)}
-                    placeholder="Ej: iPhone 15 Pro Max, Samsung S24 Ultra..."
+                    placeholder={t('Ex: iPhone 15 Pro Max, Samsung S24 Ultra...')}
                     className="w-full bg-black/30 border border-white/10 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-emerald-500/50 transition-all"
                     autoFocus
                     onKeyDown={(e) => e.key === 'Enter' && confirmSmartphoneModel()}
@@ -4414,13 +4970,13 @@ export default function App() {
                   onClick={() => setShowSmartphoneModal(false)}
                   className="px-4 py-2 rounded-lg text-sm font-medium text-zinc-300 hover:bg-zinc-800 transition-colors"
                 >
-                  Cancelar
+                  {t('Cancel')}
                 </button>
                 <button 
                   onClick={confirmSmartphoneModel}
                   className="px-6 py-2 rounded-lg text-sm font-medium bg-emerald-500 text-black hover:bg-emerald-400 transition-colors shadow-lg shadow-emerald-500/20"
                 >
-                  Confirmar
+                  {t('Confirm')}
                 </button>
               </div>
             </motion.div>
@@ -4440,8 +4996,8 @@ export default function App() {
                     <Icons.Trash2 size={20} />
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold text-white">Papelera de Reciclaje</h3>
-                    <p className="text-xs text-zinc-500">Recupera prompts eliminados accidentalmente.</p>
+                    <h3 className="text-xl font-bold text-white">{t('Recycle Bin')}</h3>
+                    <p className="text-xs text-zinc-500">{t('Recover accidentally deleted prompts.')}</p>
                   </div>
                 </div>
                 <button onClick={() => setShowRecycleBin(false)} className="p-2 hover:bg-white/5 rounded-full transition-colors text-zinc-400">
@@ -4453,14 +5009,14 @@ export default function App() {
                 {deletedPrompts.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-20 text-zinc-600">
                     <Icons.Trash2 size={48} className="mb-4 opacity-20" />
-                    <p>La papelera está vacía</p>
+                    <p>{t('The bin is empty')}</p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 gap-4">
                     {deletedPrompts.map(session => (
                       <div key={session.id} className="bg-zinc-950 border border-white/5 rounded-2xl p-4 group">
                         <div className="flex items-center justify-between mb-3">
-                          <h4 className="font-bold text-white text-sm">{session.title || 'Prompt sin título'}</h4>
+                          <h4 className="font-bold text-white text-sm">{session.title || t('Untitled Prompt')}</h4>
                           <div className="flex items-center gap-2">
                             <button 
                               onClick={async () => {
@@ -4472,14 +5028,14 @@ export default function App() {
                                 }
                               }}
                               className="p-2 text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-colors"
-                              title="Restaurar"
+                              title={t('Restore')}
                             >
                               <Icons.RotateCcw size={16} />
                             </button>
                             <button 
                               onClick={() => setDeletedPrompts(prev => prev.filter(p => p.id !== session.id))}
                               className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
-                              title="Eliminar permanentemente"
+                              title={t('Delete permanently')}
                             >
                               <Icons.Trash2 size={16} />
                             </button>
@@ -4498,13 +5054,15 @@ export default function App() {
                 <div className="p-4 border-t border-white/10 bg-zinc-900/50 flex justify-end">
                   <button 
                     onClick={() => {
-                      if (confirm('¿Estás seguro de que quieres vaciar la papelera? Esta acción no se puede deshacer.')) {
-                        setDeletedPrompts([]);
-                      }
+                      showConfirm(
+                        t('Empty Bin'),
+                        t('Are you sure you want to empty the bin? This action cannot be undone.'),
+                        () => setDeletedPrompts([])
+                      );
                     }}
                     className="text-xs text-red-400 hover:text-red-300 font-bold px-4 py-2"
                   >
-                    Vaciar Papelera
+                    {t('Empty Bin')}
                   </button>
                 </div>
               )}
@@ -4524,8 +5082,8 @@ export default function App() {
                     <Icons.History size={20} />
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold text-white">Historial de Sesión</h3>
-                    <p className="text-xs text-zinc-500">Prompts generados en esta sesión. Se borrarán al cerrar la app.</p>
+                    <h3 className="text-xl font-bold text-white">Session History</h3>
+                    <p className="text-xs text-zinc-500">Prompts generated in this session. They will be cleared when you close the app.</p>
                   </div>
                 </div>
                 <button onClick={() => setShowSessionHistory(false)} className="p-2 hover:bg-white/5 rounded-full transition-colors text-zinc-400">
@@ -4537,7 +5095,7 @@ export default function App() {
                 {sessionHistory.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-20 text-zinc-600">
                     <Icons.History size={48} className="mb-4 opacity-20" />
-                    <p>No hay historial en esta sesión todavía</p>
+                    <p>No history in this session yet</p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 gap-4">
@@ -4552,6 +5110,7 @@ export default function App() {
                               onClick={() => {
                                 setUndoStack(prev => [...prev, { blocks: selectedBlocks, instructions: customInstructions }]);
                                 setCompiledPrompt(entry.prompt);
+                                setPromptSegments([{ text: entry.prompt, categoryId: 'custom' }]);
                                 setIsEditingPrompt(true);
                                 setShowSessionHistory(false);
                               }}
@@ -4583,7 +5142,7 @@ export default function App() {
                   onClick={() => setSessionHistory([])}
                   className="text-xs text-red-400 hover:text-red-300 font-bold px-4 py-2"
                 >
-                  Limpiar Historial de Sesión
+                  Clear Session History
                 </button>
               </div>
             </motion.div>
@@ -4602,8 +5161,8 @@ export default function App() {
                     <Icons.Bookmark size={20} />
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold text-white">Guardar Estilo</h3>
-                    <p className="text-xs text-zinc-500">Guarda este prompt como un estilo reutilizable</p>
+                    <h3 className="text-xl font-bold text-white">{t('Save Style')}</h3>
+                    <p className="text-xs text-zinc-500">{t('Save this prompt as a reusable style')}</p>
                   </div>
                 </div>
                 <button onClick={() => setShowSaveStyleModal(false)} className="p-2 hover:bg-white/5 rounded-full transition-colors text-zinc-400">
@@ -4613,29 +5172,29 @@ export default function App() {
 
               <div className="p-6 space-y-6">
                 <div className="space-y-2">
-                  <label className="text-xs text-zinc-500 uppercase tracking-wider font-bold">Nombre del Estilo</label>
+                  <label className="text-xs text-zinc-500 uppercase tracking-wider font-bold">{t('Style Name')}</label>
                   <input 
                     type="text" 
                     value={styleName}
                     onChange={(e) => setStyleName(e.target.value)}
-                    placeholder="Ej: Cyberpunk Neon, Retrato Realista..."
+                    placeholder={t('Ex: Cyberpunk Neon, Realistic Portrait...')}
                     className="w-full bg-black/30 border border-white/10 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-emerald-500/50 transition-all"
                     autoFocus
                   />
                 </div>
 
                 <div className="space-y-3">
-                  <p className="text-xs text-zinc-400">¿Qué deseas guardar de esta recreación?</p>
+                  <p className="text-xs text-zinc-400">{t('What do you want to save from this recreation?')}</p>
                   <div className="grid grid-cols-1 gap-3">
                     <button 
                       onClick={() => handleSaveStyle(styleName, 'full')}
                       className="p-4 bg-zinc-950 border border-white/5 rounded-2xl hover:border-emerald-500/30 transition-all text-left group"
                     >
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm font-bold text-white group-hover:text-emerald-400 transition-colors">Todo en General</span>
+                        <span className="text-sm font-bold text-white group-hover:text-emerald-400 transition-colors">{t('Everything in General')}</span>
                         <Icons.Layers size={16} className="text-zinc-600" />
                       </div>
-                      <p className="text-[10px] text-zinc-500">Guarda el prompt completo como un estilo base.</p>
+                      <p className="text-[10px] text-zinc-500">{t('Save the full prompt as a base style.')}</p>
                     </button>
                     
                     <button 
@@ -4643,10 +5202,10 @@ export default function App() {
                       className="p-4 bg-zinc-950 border border-white/5 rounded-2xl hover:border-emerald-500/30 transition-all text-left group"
                     >
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm font-bold text-white group-hover:text-emerald-400 transition-colors">Algo Específico</span>
+                        <span className="text-sm font-bold text-white group-hover:text-emerald-400 transition-colors">{t('Something Specific')}</span>
                         <Icons.Target size={16} className="text-zinc-600" />
                       </div>
-                      <p className="text-[10px] text-zinc-500">Guarda solo los elementos clave (luces, atmósfera, técnica).</p>
+                      <p className="text-[10px] text-zinc-500">{t('Save only key elements (lights, atmosphere, technique).')}</p>
                     </button>
                   </div>
                 </div>
@@ -4657,7 +5216,7 @@ export default function App() {
                   onClick={() => setShowSaveStyleModal(false)}
                   className="px-4 py-2 rounded-lg text-sm font-medium text-zinc-400 hover:text-white transition-colors"
                 >
-                  Cancelar
+                  {t('Cancel')}
                 </button>
               </div>
             </motion.div>
@@ -4676,8 +5235,8 @@ export default function App() {
                     <Icons.Settings size={18} />
                   </div>
                   <div>
-                    <h3 className="text-lg font-bold text-white leading-tight">Configuración</h3>
-                    <p className="text-[10px] text-zinc-500">Personaliza tu experiencia en SceneCraft AI</p>
+                    <h3 className="text-lg font-bold text-white leading-tight">{t('Settings')}</h3>
+                    <p className="text-[10px] text-zinc-500">{t('Personalize your SceneCraft AI experience')}</p>
                   </div>
                 </div>
                 <button onClick={() => setShowSettings(false)} className="p-1.5 hover:bg-white/5 rounded-full transition-colors text-zinc-400">
@@ -4690,11 +5249,17 @@ export default function App() {
                 <div className="flex items-center justify-between border-b border-white/10 pb-5">
                   <div>
                     <h4 className="text-xs font-bold text-white">
-                      {currentUser ? `Hola, ${currentUser.displayName || currentUser.email?.split('@')[0] || 'Usuario'}` : 'Cuenta'}
+                      {currentUser ? `${t('Hi')}, ${currentUser.displayName || currentUser.email?.split('@')[0] || 'User'}` : t('Account')}
                     </h4>
                     <p className="text-[10px] text-zinc-500">
-                      {currentUser ? `Conectado como ${currentUser.email}` : 'Inicia sesión para guardar tu progreso'}
+                      {currentUser ? `${t('Connected as')} ${currentUser.email}` : t('Log in to save your progress')}
                     </p>
+                    <div className="mt-2 flex items-center gap-2 px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded-md w-fit">
+                      <Icons.Zap size={10} className="text-emerald-400" />
+                      <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">
+                        {currentUser?.plan === 'premium' || currentUser?.isSubscribed ? t('Premium Plan') : t('Free Plan')}
+                      </span>
+                    </div>
                   </div>
                   <div>
                     {currentUser && (
@@ -4702,7 +5267,7 @@ export default function App() {
                         onClick={handleLogout}
                         className="px-3 py-1.5 bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded-lg text-[10px] font-bold transition-colors"
                       >
-                        Cerrar Sesión
+                        Log Out
                       </button>
                     )}
                   </div>
@@ -4711,21 +5276,21 @@ export default function App() {
                 {/* Theme Toggle */}
                 <div className="flex items-center justify-between">
                   <div>
-                    <h4 className="text-sm font-bold text-white">Tema Visual</h4>
-                    <p className="text-xs text-zinc-500">Cambia entre modo oscuro y claro</p>
+                    <h4 className="text-sm font-bold text-white">{t('Visual Theme')}</h4>
+                    <p className="text-xs text-zinc-500">{t('Switch between dark and light mode')}</p>
                   </div>
                   <div className="flex bg-zinc-950 p-1 rounded-lg border border-white/5">
                     <button 
                       onClick={() => setTheme('dark')}
                       className={`px-3 py-1.5 rounded-md text-xs transition-all ${theme === 'dark' ? 'bg-zinc-800 text-white' : 'text-zinc-500'}`}
                     >
-                      Oscuro
+                      {t('Dark')}
                     </button>
                     <button 
                       onClick={() => setTheme('light')}
                       className={`px-3 py-1.5 rounded-md text-xs transition-all ${theme === 'light' ? 'bg-zinc-800 text-white' : 'text-zinc-500'}`}
                     >
-                      Claro
+                      {t('Light')}
                     </button>
                   </div>
                 </div>
@@ -4733,8 +5298,8 @@ export default function App() {
                 {/* NSFW Toggle */}
                 <div className="flex items-center justify-between">
                   <div>
-                    <h4 className="text-sm font-bold text-white">Contenido NSFW</h4>
-                    <p className="text-xs text-zinc-500">Permitir bloques y términos explícitos</p>
+                    <h4 className="text-sm font-bold text-white">{t('NSFW Content')}</h4>
+                    <p className="text-xs text-zinc-500">{t('Allow explicit blocks and terms')}</p>
                   </div>
                   <button 
                     onClick={() => setIsNsfwEnabled(!isNsfwEnabled)}
@@ -4750,8 +5315,8 @@ export default function App() {
                 {/* Language Selection */}
                 <div className="flex items-center justify-between">
                   <div>
-                    <h4 className="text-sm font-bold text-white">Idioma de la Interfaz</h4>
-                    <p className="text-xs text-zinc-500">Cambia el idioma de la aplicación</p>
+                    <h4 className="text-sm font-bold text-white">{t('Interface Language')}</h4>
+                    <p className="text-xs text-zinc-500">{t('Change the application language')}</p>
                   </div>
                   <select 
                     value={language}
@@ -4770,24 +5335,24 @@ export default function App() {
 
                 <div className="flex items-center justify-between">
                   <div>
-                    <h4 className="text-sm font-bold text-white">Idioma del Prompt</h4>
-                    <p className="text-xs text-zinc-500">Idioma de salida para los prompts generados</p>
+                    <h4 className="text-sm font-bold text-white">{t('Prompt Language')}</h4>
+                    <p className="text-xs text-zinc-500">{t('Output language for generated prompts')}</p>
                   </div>
                   <select 
                     value={outputLanguage}
                     onChange={(e) => setOutputLanguage(e.target.value as 'es' | 'en')}
                     className="bg-zinc-950 border border-emerald-500/30 rounded-lg px-3 py-1.5 text-xs text-emerald-400 focus:outline-none"
                   >
-                    <option value="en">Inglés (EN)</option>
-                    <option value="es">Español (ES)</option>
+                    <option value="en">English (EN)</option>
+                    <option value="es">Spanish (ES)</option>
                   </select>
                 </div>
 
                 {/* Manual Generation Toggle */}
                 <div className="flex items-center justify-between">
                   <div>
-                    <h4 className="text-sm font-bold text-white">Generación Manual</h4>
-                    <p className="text-xs text-zinc-500">Activa la edición manual del prompt final</p>
+                    <h4 className="text-sm font-bold text-white">{t('Manual Generation')}</h4>
+                    <p className="text-xs text-zinc-500">{t('Enable manual editing of the final prompt')}</p>
                   </div>
                   <button 
                     onClick={() => {
@@ -4807,36 +5372,36 @@ export default function App() {
                 {/* UI Style */}
                 <div className="flex items-center justify-between">
                   <div>
-                    <h4 className="text-sm font-bold text-white">Estilo de Interfaz</h4>
-                    <p className="text-xs text-zinc-500">Diseños preestablecidos para la plataforma</p>
+                    <h4 className="text-sm font-bold text-white">{t('UI Style')}</h4>
+                    <p className="text-xs text-zinc-500">{t('Preset layouts for the platform')}</p>
                   </div>
                   <select 
                     value={uiStyle}
                     onChange={(e) => setUiStyle(e.target.value as any)}
                     className="bg-zinc-950 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none"
                   >
-                    <option value="modern">Moderno (Default)</option>
-                    <option value="glass">Glassmorphism</option>
-                    <option value="brutalist">Brutalista</option>
+                    <option value="modern">{t('Modern (Default)')}</option>
+                    <option value="glass">{t('Glassmorphism')}</option>
+                    <option value="brutalist">{t('Brutalist')}</option>
                   </select>
                 </div>
 
                 {/* Color Theme */}
                 <div className="flex items-center justify-between">
                   <div>
-                    <h4 className="text-sm font-bold text-white">Color de Acento</h4>
-                    <p className="text-xs text-zinc-500">Color principal de la interfaz</p>
+                    <h4 className="text-sm font-bold text-white">{t('Accent Color')}</h4>
+                    <p className="text-xs text-zinc-500">{t('Primary color of the interface')}</p>
                   </div>
                   <select 
                     value={colorTheme}
                     onChange={(e) => setColorTheme(e.target.value as any)}
                     className="bg-zinc-950 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none"
                   >
-                    <option value="emerald">Esmeralda (Default)</option>
-                    <option value="blue">Azul</option>
-                    <option value="purple">Púrpura</option>
-                    <option value="rose">Rosa</option>
-                    <option value="amber">Ámbar</option>
+                    <option value="emerald">{t('Emerald (Default)')}</option>
+                    <option value="blue">{t('Blue')}</option>
+                    <option value="purple">{t('Purple')}</option>
+                    <option value="rose">{t('Rose')}</option>
+                    <option value="amber">{t('Amber')}</option>
                   </select>
                 </div>
 
@@ -4848,7 +5413,7 @@ export default function App() {
                     }}
                     className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2"
                   >
-                    Guardar y Aplicar
+                    {t('Save and Apply')}
                   </button>
                   {!currentUser && (
                     <button 
@@ -4861,7 +5426,7 @@ export default function App() {
                         <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
                         <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
                       </svg>
-                      Iniciar Sesión con Google
+                      {t('Sign In with Google')}
                     </button>
                   )}
                 </div>
@@ -4875,7 +5440,7 @@ export default function App() {
                     }}
                     className="w-full py-3 bg-zinc-800 hover:bg-zinc-700 text-white text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-2"
                   >
-                    <Icons.HelpCircle size={16} /> Reiniciar Tutorial Guiado
+                    <Icons.HelpCircle size={16} /> {t('Restart Guided Tutorial')}
                   </button>
                 </div>
               </div>
@@ -4906,8 +5471,8 @@ export default function App() {
                     <Icons.Layers size={24} />
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold text-white">Estructura de la Escena</h2>
-                    <p className="text-xs text-zinc-500 uppercase tracking-widest font-bold">Gestión Detallada de Bloques</p>
+                    <h2 className="text-xl font-bold text-white">{t('Scene Structure')}</h2>
+                    <p className="text-xs text-zinc-500 uppercase tracking-widest font-bold">{t('Detailed Block Management')}</p>
                   </div>
                 </div>
                 <button 
@@ -4922,7 +5487,7 @@ export default function App() {
                 {selectedBlocks.length === 0 && customInstructions.length === 0 ? (
                   <div className="h-full flex flex-col items-center justify-center text-zinc-600 gap-4">
                     <Icons.Layers size={48} className="opacity-20" />
-                    <p className="italic">No hay elementos en la escena actual.</p>
+                    <p className="italic">{t('No elements in the current scene.')}</p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -4936,9 +5501,9 @@ export default function App() {
                         >
                           <div className="flex flex-col gap-1">
                             <span className={`text-[10px] font-bold uppercase tracking-tighter ${cat?.color || 'text-zinc-500'}`}>
-                              {cat?.label || 'Custom'}
+                              {cat?.label ? t(cat.label) : t('Custom')}
                             </span>
-                            <span className="text-sm text-white font-medium">{block.label}</span>
+                            <span className="text-sm text-white font-medium">{t(block.label)}</span>
                           </div>
                           <button 
                             onClick={() => toggleBlock(block)}
@@ -4957,17 +5522,16 @@ export default function App() {
                       >
                         <div className="flex flex-col gap-1">
                           <span className="text-[10px] font-bold uppercase tracking-tighter text-emerald-400">
-                            Instrucción Chat
+                            {t('Chat Instruction')}
                           </span>
                           <span className="text-sm text-white font-medium line-clamp-2">{inst}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <button 
                             onClick={() => {
-                              const newInst = window.prompt('Editar instrucción:', inst);
-                              if (newInst !== null && newInst.trim() !== '') {
-                                setCustomInstructions(prev => prev.map((item, i) => i === idx ? newInst.trim() : item));
-                              }
+                              setEditingInstructionIndex(idx);
+                              setEditingInstructionText(inst);
+                              setShowEditInstructionModal(true);
                             }}
                             className="p-2 text-zinc-600 hover:text-blue-400 hover:bg-blue-400/10 rounded-lg transition-all"
                           >
@@ -4988,7 +5552,7 @@ export default function App() {
 
               <div className="p-6 bg-[#0A0A0A] border-t border-white/10 flex items-center justify-between">
                 <div className="text-sm text-zinc-500">
-                  <span className="text-emerald-400 font-bold">{selectedBlocks.length + customInstructions.length}</span> elementos activos
+                  <span className="text-emerald-400 font-bold">{selectedBlocks.length + customInstructions.length}</span> {t('active elements')}
                 </div>
                 <button 
                   onClick={() => {
@@ -4998,7 +5562,7 @@ export default function App() {
                   }}
                   className="px-6 py-2 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white text-xs font-bold uppercase tracking-widest rounded-xl border border-red-500/20 transition-all"
                 >
-                  Limpiar Escena
+                  {t('Clear Scene')}
                 </button>
               </div>
             </motion.div>
@@ -5035,26 +5599,26 @@ export default function App() {
               className="bg-[#141414] border border-white/10 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl"
             >
               <div className="p-6 border-b border-white/5">
-                <h2 className="text-lg font-bold text-white">Añadir Nuevo Prompt</h2>
-                <p className="text-xs text-zinc-500 uppercase tracking-widest font-bold mt-1">Guarda tus mejores creaciones</p>
+                <h2 className="text-lg font-bold text-white">{t('Add New Prompt')}</h2>
+                <p className="text-xs text-zinc-500 uppercase tracking-widest font-bold mt-1">{t('Save your best creations')}</p>
               </div>
               <div className="p-6 space-y-4">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Título</label>
+                  <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{t('Title')}</label>
                   <input 
                     type="text"
                     value={newPromptTitle}
                     onChange={(e) => setNewPromptTitle(e.target.value)}
-                    placeholder="Ej: Retrato Cyberpunk"
+                    placeholder={t('Ex: Cyberpunk Portrait')}
                     className="w-full bg-zinc-900 border border-white/5 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500/50 transition-colors"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Contenido del Prompt</label>
+                  <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{t('Prompt Content')}</label>
                   <textarea 
                     value={newPromptContent}
                     onChange={(e) => setNewPromptContent(e.target.value)}
-                    placeholder="Escribe o pega tu prompt aquí..."
+                    placeholder={t('Write or paste your prompt here...')}
                     rows={6}
                     className="w-full bg-zinc-900 border border-white/5 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500/50 transition-colors resize-none custom-scrollbar"
                   />
@@ -5065,13 +5629,13 @@ export default function App() {
                   onClick={() => setShowAddPromptModal(false)}
                   className="px-4 py-2 text-xs font-bold text-zinc-400 hover:text-white transition-colors"
                 >
-                  Cancelar
+                  {t('Cancel')}
                 </button>
                 <button 
                   onClick={handleAddPrompt}
                   className="px-6 py-2 bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold rounded-xl transition-all"
                 >
-                  Añadir Prompt
+                  {t('Add Prompt')}
                 </button>
               </div>
             </motion.div>
@@ -5079,154 +5643,36 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* Category Manager Modal */}
+      {/* Category and Prompt Manager Modal */}
       <AnimatePresence>
-        {showCategoryManager && (
-          <motion.div 
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[300] flex items-center justify-center p-4"
-          >
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="bg-[#141414] border border-white/10 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[80vh]"
-            >
-              <div className="p-6 border-b border-white/5 flex items-center justify-between">
-                <div>
-                  <h2 className="text-lg font-bold text-white">Gestor de Categorías</h2>
-                  <p className="text-xs text-zinc-500 uppercase tracking-widest font-bold mt-1">Organiza tus bloques personalizados</p>
-                </div>
-                <button 
-                  onClick={() => setShowCategoryManager(false)}
-                  className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-all"
-                >
-                  <Icons.X size={20} />
-                </button>
-              </div>
-              <div className="flex-1 p-6 overflow-y-auto custom-scrollbar">
-                {customCategories.length === 0 ? (
-                  <div className="h-40 flex flex-col items-center justify-center text-zinc-600 gap-3">
-                    <Icons.FolderPlus size={32} className="opacity-20" />
-                    <p className="text-sm italic">No has creado categorías personalizadas aún.</p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {customCategories.map(cat => (
-                      <div key={cat.id} className="bg-zinc-900/50 border border-white/5 p-4 rounded-xl flex items-center justify-between group hover:border-emerald-500/30 transition-all">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-10 h-10 rounded-lg bg-${cat.color}-500/10 flex items-center justify-center text-${cat.color}-400`}>
-                            <Icons.Folder size={20} />
-                          </div>
-                          <div>
-                            <input 
-                              type="text"
-                              value={cat.name}
-                              onChange={async (e) => {
-                                const newName = e.target.value;
-                                if (currentUser) {
-                                  try {
-                                    await updateDoc(doc(db, 'customCategories', cat.id), { name: newName });
-                                  } catch (error) {
-                                    handleFirestoreError(error, OperationType.UPDATE, `customCategories/${cat.id}`);
-                                  }
-                                } else {
-                                  setCustomCategories(prev => {
-                                    const updated = prev.map(c => c.id === cat.id ? { ...c, name: newName } : c);
-                                    localStorage.setItem('local_customCategories', JSON.stringify(updated));
-                                    return updated;
-                                  });
-                                }
-                              }}
-                              className="bg-transparent text-sm font-medium text-white focus:outline-none border-b border-transparent focus:border-emerald-500/50 w-full"
-                            />
-                            <p className="text-[10px] text-zinc-500 mt-0.5">
-                              {customBlocks.filter(b => b.categoryId === cat.id).length} bloques
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <button 
-                            onClick={() => {
-                              setActiveCategory(cat.id);
-                              setShowCategoryManager(false);
-                            }}
-                            className="p-2 text-zinc-500 hover:text-emerald-400 hover:bg-emerald-400/10 rounded-lg transition-all"
-                            title="Ver contenido"
-                          >
-                            <Icons.ExternalLink size={16} />
-                          </button>
-                          <button 
-                            onClick={() => showConfirm(
-                              'Eliminar Categoría',
-                              `¿Estás seguro de que quieres eliminar "${cat.name}"?`,
-                              async () => {
-                                if (currentUser) {
-                                  try {
-                                    await deleteDoc(doc(db, 'customCategories', cat.id));
-                                    const blocksToDelete = customBlocks.filter(b => b.categoryId === cat.id);
-                                    for (const block of blocksToDelete) {
-                                      await deleteDoc(doc(db, 'customBlocks', block.id));
-                                    }
-                                  } catch (error) {
-                                    handleFirestoreError(error, OperationType.DELETE, `customCategories/${cat.id}`);
-                                  }
-                                } else {
-                                  setCustomCategories(prev => {
-                                    const updated = prev.filter(c => c.id !== cat.id);
-                                    localStorage.setItem('local_customCategories', JSON.stringify(updated));
-                                    return updated;
-                                  });
-                                  setCustomBlocks(prev => {
-                                    const updated = prev.filter(b => b.categoryId !== cat.id);
-                                    localStorage.setItem('local_customBlocks', JSON.stringify(updated));
-                                    return updated;
-                                  });
-                                }
-                                if (activeCategory === cat.id) setActiveCategory(ALL_CATEGORIES[0].id);
-                              }
-                            )}
-                            className="p-2 text-zinc-500 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all"
-                            title="Eliminar"
-                          >
-                            <Icons.Trash2 size={16} />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div className="p-6 bg-zinc-900/50 border-t border-white/5 flex items-center justify-between">
-                <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">
-                  {customCategories.length} Categorías Totales
-                </p>
-                <button 
-                  onClick={async () => {
-                    const id = `custom_cat_${Date.now()}`;
-                    const newCat: CustomCategory = { id, name: 'Nueva Categoría', icon: 'Folder', color: 'emerald', authorId: currentUser?.uid || 'local_user', parentId: null };
-                    
-                    if (currentUser) {
-                      try {
-                        await setDoc(doc(db, 'customCategories', id), newCat);
-                      } catch (error) {
-                        handleFirestoreError(error, OperationType.CREATE, `customCategories/${id}`);
-                      }
-                    } else {
-                      setCustomCategories(prev => {
-                        const updated = [...prev, newCat];
-                        localStorage.setItem('local_customCategories', JSON.stringify(updated));
-                        return updated;
-                      });
-                    }
-                  }}
-                  className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold rounded-xl transition-all flex items-center gap-2"
-                >
-                  <Icons.Plus size={14} /> Nueva Categoría
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
+        {showCategoryAndPromptManager && (
+          <CategoryAndPromptManager 
+            isOpen={showCategoryAndPromptManager}
+            onClose={() => setShowCategoryAndPromptManager(false)}
+            customCategories={customCategories}
+            setCustomCategories={setCustomCategories}
+            promptFolders={promptFolders}
+            setPromptFolders={setPromptFolders}
+            savedPrompts={savedPrompts}
+            setSavedPrompts={setSavedPrompts}
+            customBlocks={customBlocks}
+            setCustomBlocks={setCustomBlocks}
+            currentUser={currentUser}
+            onSaveCategory={handleSaveCategory}
+            onDeleteCategory={handleDeleteCategory}
+            onSaveCustomBlock={handleSaveCustomBlock}
+            onDeleteCustomBlock={handleDeleteCustomBlock}
+            onSaveFolder={handleSaveFolder}
+            onDeleteFolder={handleDeleteFolder}
+            onSavePrompt={handleSavePrompt}
+            onDeletePrompt={handleDeletePrompt}
+            baseCategories={workMode === 'influencer' ? INFLUENCER_CATEGORIES : GENERAL_CATEGORIES}
+            baseBlocks={workMode === 'influencer' ? INFLUENCER_BLOCKS : GENERAL_BLOCKS}
+            selectedBlocks={selectedBlocks}
+            toggleBlock={toggleBlock}
+            setConfirmModal={setConfirmModal}
+            t={t}
+          />
         )}
       </AnimatePresence>
 
@@ -5259,7 +5705,7 @@ export default function App() {
                   onClick={() => setConfirmModal(prev => ({ ...prev, show: false }))}
                   className="flex-1 py-3 bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold rounded-xl transition-all"
                 >
-                  Cancelar
+                  {t('Cancel')}
                 </button>
                 <button 
                   onClick={confirmModal.onConfirm}
@@ -5269,7 +5715,60 @@ export default function App() {
                     'bg-emerald-500 hover:bg-emerald-400'
                   }`}
                 >
-                  Confirmar
+                  {t('Confirm')}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Edit Instruction Modal */}
+      <AnimatePresence>
+        {showEditInstructionModal && (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[500] flex items-center justify-center p-4"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="bg-[#141414] border border-white/10 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl"
+            >
+              <div className="p-6 border-b border-white/5 flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-bold text-white">{t('Edit Chat Topic')}</h2>
+                  <p className="text-xs text-zinc-500 uppercase tracking-widest font-bold mt-1">{t('Modify your custom instruction')}</p>
+                </div>
+                <button 
+                  onClick={() => setShowEditInstructionModal(false)}
+                  className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-all"
+                >
+                  <Icons.X size={20} />
+                </button>
+              </div>
+              <div className="p-6">
+                <textarea 
+                  value={editingInstructionText}
+                  onChange={(e) => setEditingInstructionText(e.target.value)}
+                  placeholder={t('Write your instruction here...')}
+                  rows={6}
+                  className="w-full bg-zinc-900 border border-white/5 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500/50 transition-colors resize-none custom-scrollbar"
+                />
+              </div>
+              <div className="p-6 bg-zinc-900/50 border-t border-white/5 flex items-center justify-end gap-3">
+                <button 
+                  onClick={() => setShowEditInstructionModal(false)}
+                  className="px-4 py-2 text-xs font-bold text-zinc-400 hover:text-white transition-colors"
+                >
+                  {t('Cancel')}
+                </button>
+                <button 
+                  onClick={handleSaveEditedInstruction}
+                  className="px-6 py-2 bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold rounded-xl transition-all"
+                >
+                  {t('Save Changes')}
                 </button>
               </div>
             </motion.div>
