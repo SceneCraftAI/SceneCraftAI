@@ -45,6 +45,9 @@ export default function App() {
   const [isSubstitutionEnabled, setIsSubstitutionEnabled] = useState(false);
   const [showNsfwWarning, setShowNsfwWarning] = useState(false);
 
+  // Refs
+  const chatTextareaRef = useRef<HTMLTextAreaElement>(null);
+
   // Languages
   const [outputLanguage, setOutputLanguage] = useState<'es' | 'en'>('en');
 
@@ -316,7 +319,6 @@ export default function App() {
       'Please login to save your prompts': 'Por favor, inicia sesión para guardar tus prompts',
       'New Prompt': 'Nuevo Prompt',
       'Title': 'Título',
-      'Content': 'Contenido',
       'Save Prompt': 'Guardar Prompt',
       'Edit Prompt': 'Editar Prompt',
       'Delete Prompt': 'Eliminar Prompt',
@@ -368,8 +370,12 @@ export default function App() {
       'Discard': 'Descartar',
       'Are you sure you want to delete this category?': '¿Estás seguro de que quieres eliminar esta categoría?',
       'All blocks inside will also be deleted.': 'Todos los bloques dentro también se eliminarán.',
+      'Are you sure you want to delete this folder?': '¿Estás seguro de que quieres eliminar esta carpeta?',
+      'The prompts inside will not be deleted, but will lose their association.': 'Los prompts dentro de ella no se eliminarán, pero perderán su asociación.',
       'Are you sure you want to delete this block?': '¿Estás seguro de que quieres eliminar este bloque?',
+      'Are you sure you want to delete this prompt?': '¿Estás seguro de que quieres eliminar este prompt?',
       'This cannot be undone.': 'Esto no se puede deshacer.',
+      'This action cannot be undone.': 'Esta acción no se puede deshacer.',
       'New Subcategory': 'Nueva Subcategoría',
       'New Item': 'Nuevo Elemento',
       'Edit Instruction': 'Editar Instrucción',
@@ -437,14 +443,11 @@ export default function App() {
       'Action cancelled': 'Acción cancelada',
       'Optimizar para el límite': 'Optimize for limit',
       'Editing banned words': 'Editando palabras prohibidas',
-      'Compiling...': 'Compilando...',
       'SceneCraft Soul': 'SceneCraft Soul',
       'Midjourney (V6+)': 'Midjourney (V6+)',
       'Stable Diffusion (XL/3)': 'Stable Diffusion (XL/3)',
       'DALL-E 3': 'DALL-E 3',
       'IA Target (Optimización)': 'AI Target (Optimization)',
-      'Manual': 'Manual',
-      'Auto': 'Auto',
       'Cambiar a Generación Automática': 'Switch to Auto Generation',
       'Cambiar a Generación Manual': 'Switch to Manual Generation',
       'GENERAR AHORA': 'GENERATE NOW',
@@ -460,7 +463,6 @@ export default function App() {
       'Lentes / Parámetros': 'Lens / Parameters',
       'Iluminación': 'Lighting',
       'Realismo': 'Realism',
-      'Outfit / Styling': 'Outfit / Styling',
       'Maquillaje': 'Makeup',
       'Paleta / Color': 'Palette / Color',
       'Fondo y Props': 'Background & Props',
@@ -476,21 +478,23 @@ export default function App() {
       'Atmósfera / Mood': 'Atmosphere / Mood',
       'Paleta de Color': 'Color Palette',
       'Nivel de Detalle': 'Detail Level',
-      'Prompting General': 'Prompting General',
-      'Escena': 'Escena',
-      'Recreación': 'Recreación',
-      'Variaciones': 'Variaciones',
-      'Prompting General': 'General Prompting',
-      'Flow': 'Flow',
+      'Alchemy History': 'Historial de Alquimia',
+      'Prompt Alchemy': 'Alquimia de Prompts',
+      'Visual Categories': 'Categorías Visuales',
+      'Scene Structure': 'Estructura de la Escena',
+      'The generated prompt will appear here...': 'El prompt generado aparecerá aquí...',
+      'View More': 'Ver más',
+      'Click on the blocks to add them to your prompt.': 'Haz clic en los bloques para añadirlos a tu prompt.',
+      'Ex: Make it more casual, change to neon light, add a mirror...': 'Ej: Hazlo más casual, cambia a luz de neón, añade un espejo...',
+      'Integrate into Scene': 'Integrar a la Escena',
+      'Generating Flow...': 'Generando Flujo...',
+      'Generate Story': 'Generar Historia',
+      'Community & Inspiration': 'Comunidad e Inspiración',
+      'Share to Community': 'Compartir en Comunidad',
       'Comunidad': 'Comunidad',
-      'Feed': 'Feed',
-      'Co-Working': 'Co-Working',
       'Historial': 'Historial',
       'Herramientas': 'Herramientas',
       'Espacio': 'Espacio',
-      'Admin Panel': 'Panel de Admin',
-      'Users': 'Usuarios',
-      'News': 'Noticias',
       'Subs': 'Suscripciones',
       'Cleaning...': 'Limpiando...',
       'Clean': 'Limpiar',
@@ -516,11 +520,15 @@ export default function App() {
       'Ex: user@gmail.com or Name#1234': 'Ej: usuario@gmail.com o Nombre#1234',
       'Send Invitation': 'Enviar Invitación',
       'Bust Measurement': 'Medida de Busto',
+      'Bust ({size})': 'Busto ({size})',
+      'Natural measurement': 'Medida natural',
       'Specify bust measurement or "Bra Cup" for better body consistency.': 'Especifica la medida del busto o "Bra Cup" para mayor consistencia en el cuerpo.',
       'Bra Cup / Measurement': 'Bra Cup / Medida',
       'Ex: 34C, Large, DD cup...': 'Ej: 34C, Large, DD cup...',
       'Smartphone Details': 'Detalles del Celular',
       'What smartphone model would you like to appear in the prompt?': '¿Qué modelo de celular o smartphone te gustaría que aparezca en el prompt?',
+      'Smartphone ({model})': 'Celular ({model})',
+      'Generic model': 'Modelo genérico',
       'Model / Brand': 'Modelo / Marca',
       'Ex: iPhone 15 Pro Max, Samsung S24 Ultra...': 'Ej: iPhone 15 Pro Max, Samsung S24 Ultra...',
       'Recover accidentally deleted prompts.': 'Recupera prompts eliminados accidentalmente.',
@@ -529,7 +537,6 @@ export default function App() {
       'Delete permanently': 'Eliminar permanentemente',
       'Are you sure you want to empty the bin? This action cannot be undone.': '¿Estás seguro de que quieres vaciar la papelera? Esta acción no se puede deshacer.',
       'Restore this prompt': 'Restaurar este prompt',
-      'Copy': 'Copiar',
       'Save this prompt as a reusable style': 'Guarda este prompt como un estilo reutilizable',
       'Ex: Cyberpunk Neon, Realistic Portrait...': 'Ej: Cyberpunk Neon, Retrato Realista...',
       'What do you want to save from this recreation?': '¿Qué deseas guardar de esta recreación?',
@@ -571,14 +578,11 @@ export default function App() {
       'e.g. My Style': 'ej. Mi Estilo',
       'Parent Category (Optional)': 'Categoría Padre (Opcional)',
       'None (Top-level)': 'Ninguno (Nivel superior)',
-      'Custom': 'Personalizado',
       'Save Category': 'Guardar Categoría',
       'Label': 'Etiqueta',
       'e.g. Cinematic Lighting': 'ej. Iluminación Cinemática',
       'Prompt Text': 'Texto del Prompt',
       'The text that will be added to the prompt...': 'El texto que se añadirá al prompt...',
-      'NSFW Content': 'Contenido NSFW',
-      'Mark if this item contains adult content': 'Marcar si este elemento contiene contenido para adultos',
       'Save Item': 'Guardar Elemento',
       'e.g. Hyper-realistic Portrait': 'ej. Retrato Hiperrealista',
       'Write your prompt here...': 'Escribe tu prompt aquí...',
@@ -587,6 +591,848 @@ export default function App() {
       'Delete Folder': 'Eliminar Carpeta',
       'Delete Item': 'Eliminar Elemento',
       'Are you sure you want to delete this item? This action cannot be undone.': '¿Estás seguro de que quieres eliminar este elemento? Esta acción no se puede deshacer.',
+      'Manage users, subscriptions and platform content.': 'Gestiona usuarios, suscripciones y contenido de la plataforma.',
+      'Total Users': 'Usuarios Totales',
+      'User Management': 'Gestión de Usuarios',
+      'User': 'Usuario',
+      'Status': 'Estado',
+      'Prompts': 'Prompts',
+      'Actions': 'Acciones',
+      'Admin / Creator': 'Admin / Creador',
+      'Active': 'Activo',
+      'Owner': 'Propietario',
+      'Standard User': 'Usuario Estándar',
+      'Free': 'Gratis',
+      'Gift Subscription': 'Regalar Suscripción',
+      'Block User': 'Bloquear Usuario',
+      'Free Tier': 'Tier Free',
+      'month': 'mes',
+      'daily prompts': 'prompts diarios',
+      'Basic access': 'Acceso básico',
+      'No Magic Enhance': 'Sin Magic Enhance',
+      'Configure': 'Configurar',
+      'POPULAR': 'POPULAR',
+      'Pro Tier': 'Tier Pro',
+      'No ads': 'Sin anuncios',
+      'Elite Tier': 'Tier Elite',
+      'Magic Enhance (AI)': 'Magic Enhance (AI)',
+      'Unlimited prompts': 'Prompts ilimitados',
+      'Priority support': 'Soporte prioritario',
+      'Early access': 'Acceso anticipado',
+      'Content Moderation': 'Moderación de Contenido',
+      'Platform Controls': 'Controles de Plataforma',
+      'Global Maintenance': 'Mantenimiento Global',
+      'Blocks access to all users': 'Bloquea el acceso a todos los usuarios',
+      'New Features (Spoilers)': 'Nuevas Funciones (Spoilers)',
+      'Shows tabs under construction': 'Muestra pestañas en construcción',
+      'System Status': 'Estado del Sistema',
+      'App Version': 'Versión App',
+      'Database': 'Base de Datos',
+      'Connected (Firebase)': 'Conectado (Firebase)',
+      'Collapse suggestions': 'Contraer sugerencias',
+      'Show suggestions': 'Mostrar sugerencias',
+      'Copilot': 'Copiloto',
+      'Suggestions for your Prompt': 'Sugerencias para tu Prompt',
+      'Build your scene to receive contextual suggestions.': 'Construye tu escena para recibir sugerencias contextuales.',
+      'Suggestions for your scene': 'Sugerencias para tu escena',
+      'No new suggestions for now.': 'No hay nuevas sugerencias por ahora.',
+      'Prompt Title': 'Título del Prompt',
+      'e.g. Cyberpunk Neon Portrait': 'e.g. Cyberpunk Neon Portrait',
+      'Suggest title': 'Sugerir título',
+      'My Library': 'Mi Biblioteca',
+      'Search in library...': 'Buscar en biblioteca...',
+      'Trash': 'Papelera',
+      'Date': 'Fecha',
+      'You haven\'t saved any prompts yet.': 'No has guardado ningún prompt todavía.',
+      'Click to rename': 'Click para renombrar',
+      'Reuse': 'Reutilizar',
+      'Sensitive Content': 'Contenido Sensible',
+      'You are trying to add a block that contains explicit or sensitive material (NSFW).': 'Estás intentando añadir un bloque que contiene material explícito o sensible (NSFW).',
+      'To use these blocks, you need to enable the "NSFW Allowed" switch at the top of the workspace.': 'Para poder utilizar estos bloques, necesitas habilitar el interruptor "NSFW Permitido" en la parte superior del área de trabajo.',
+      'Understood': 'Entendido',
+      'Enable NSFW': 'Habilitar NSFW',
+      'Search subcategory...': 'Buscar subcategoría...',
+      'Integrate Recreation': 'Integrar Recreación',
+      'Current Prompt (Prompting)': 'Prompt Actual (Prompting)',
+      'No current prompt...': 'No hay prompt actual...',
+      'Extracted Prompt (Recreation)': 'Prompt Extraído (Recreación)',
+      'Integration Options': 'Opciones de Integración',
+      'Image Recreation': 'Recreación de Imagen',
+      'Add (Combine)': 'Añadir (Combinar)',
+      'Adds the extracted prompt as a new block in the Scene Structure. The AI will mix it with your current prompt.': 'Añade el prompt extraído como un nuevo bloque en la Estructura de la Escena. La IA lo mezclará con tu prompt actual.',
+      'Recreation Details': 'Detalles de Recreación',
+      'Use Final Prompt parameters': 'Usar parámetros de Prompt Final',
+      'Adds the image as a secondary block. Maintains your current structure and only adds details that do not contradict what you already chose.': 'Añade la imagen como un bloque secundario. Mantiene tu estructura actual y solo añade detalles que no contradicen lo que ya elegiste.',
+      'Exact Recreation': 'Recreación Exacta',
+      'Use Recreation parameters': 'Usar parámetros de Recreación',
+      'Completely replaces your current structure with a single block containing the description of the uploaded image.': 'Reemplaza completamente tu estructura actual con un solo bloque que contiene la descripción de la imagen subida.',
+      'Clean Prompt': 'Limpiar Prompt',
+      'Select the elements you want to remove from the extracted prompt:': 'Selecciona los elementos que deseas eliminar del prompt extraído:',
+      'Tattoos': 'Tatuajes',
+      'Piercings': 'Piercings',
+      'Hair details (color, style)': 'Detalles del cabello (color, estilo)',
+      'Specific facial features': 'Rasgos faciales específicos',
+      'Specific clothing': 'Ropa específica',
+      'Background / Environment': 'Fondo / Ambientación',
+      'Deselect All': 'Deseleccionar Todo',
+      'Select All': 'Seleccionar Todo',
+      'active elements': 'elementos activos',
+      'Hi': 'Hola',
+      'Account': 'Cuenta',
+      'Connected as': 'Conectado como',
+      'Log in to save your progress': 'Inicia sesión para guardar tu progreso',
+      'Premium Plan': 'Plan Premium',
+      'Free Plan': 'Plan Gratis',
+      'Visual Theme': 'Tema Visual',
+      'Switch between dark and light mode': 'Cambia entre modo oscuro y claro',
+      'Change the application language': 'Cambia el idioma de la aplicación',
+      'Output language for generated prompts': 'Idioma de salida para prompts generados',
+      'Enable manual editing of the final prompt': 'Habilita la edición manual del prompt final',
+      'Preset layouts for the platform': 'Diseños preestablecidos para la plataforma',
+      'Modern (Default)': 'Moderno (Por defecto)',
+      'Glassmorphism': 'Glassmorphism',
+      'Accent Color': 'Color de Acento',
+      'Primary color of the interface': 'Color primario de la interfaz',
+      'Emerald (Default)': 'Esmeralda (Por defecto)',
+      'Blue': 'Azul',
+      'Purple': 'Púrpura',
+      'Rose': 'Rosa',
+      'Amber': 'Ámbar',
+      'Save and Apply': 'Guardar y Aplicar',
+      'Sign In with Google': 'Iniciar Sesión con Google',
+      'Restart Guided Tutorial': 'Reiniciar Tutorial Guiado',
+      'Prompts generated in this session. They will be cleared when you close the app.': 'Prompts generados en esta sesión. Se borrarán cuando cierres la aplicación.',
+      'No history in this session yet': 'No hay historial en esta sesión todavía',
+      'Clear Session History': 'Limpiar Historial de Sesión',
+      'Log Out': 'Cerrar Sesión',
+      'Categories': 'Categorías',
+      'Manage Categories and Prompts': 'Gestionar Categorías y Prompts',
+      'Custom Category': 'Categoría Personalizada',
+      'Back to top-level category': 'Volver a la categoría superior',
+      '(View More)': '(Ver más)',
+      'Character limit': 'Límite de caracteres',
+      'Code Generation': 'Generación de Código',
+      'Drag and drop an image here, or click to select.': 'Arrastra y suelta una imagen aquí, o haz clic para seleccionar.',
+      'Paste image URL here...': 'Pega la URL de la imagen aquí...',
+      'Generate variations of your current prompt by changing specific aspects.': 'Genera variaciones de tu prompt actual cambiando aspectos específicos.',
+      'No current prompt to vary. Go to the Prompting tab and create one.': 'No hay prompt actual para variar. Ve a la pestaña de Prompting y crea uno.',
+      'Ex: something dramatic...': 'Ej: algo dramático...',
+      'No current prompt. Go to the Prompting tab and create one.': 'No hay prompt actual. Ve a la pestaña de Prompting y crea uno.',
+      'Story Configuration': 'Configuración de la Historia',
+      'Ex: A heavy day at work, from waking up until returning home exhausted...': 'Ej: Un día pesado en el trabajo, desde que se levanta hasta que regresa a casa exhausto...',
+      'Number of prompts (Max 20):': 'Número de prompts (Max 20):',
+      'Final Prompt Position:': 'Posición del Prompt Final:',
+      'Automatic (Based on coherence)': 'Automático (Según coherencia)',
+      'Position': 'Posición',
+      'Explore prompts created by other users, get inspired and share your creations.': 'Explora prompts creados por otros usuarios, inspírate y comparte tus creaciones.',
+      'Search by title or prompt...': 'Buscar por título o prompt...',
+      'Most recent': 'Más recientes',
+      'Most popular': 'Más populares',
+      'Combine up to 6 images to generate unique and coherent prompts.': 'Combina hasta 6 imágenes para generar prompts únicos y coherentes.',
+      'Transmutation Results': 'Resultados de la Transmutación',
+      'Variation': 'Variación',
+      'No coworking topics yet.': 'No hay temas de coworking aún.',
+      'You': 'Tú',
+      'Wide field of view, ideal for landscapes or architecture. May distort edges.': 'Amplio campo de visión, ideal para paisajes o arquitectura. Puede distorsionar bordes.',
+      'The standard. Very versatile, ideal for half-body portraits and general use.': 'El estándar. Muy versátil, ideal para retratos de medio cuerpo y uso general.',
+      'Classic for portraits. Compresses the background and favors facial features.': 'Clásico para retratos. Comprime el fondo y favorece las facciones del rostro.',
+      'Captures a lot of information from the environment. Useful in closed spaces.': 'Captura mucha información del entorno. Útil en espacios cerrados.',
+      'Specific lens effect to alter the image aesthetics.': 'Efecto de lente específico para alterar la estética de la imagen.',
+      'Natural perspective, similar to human vision. Excellent for reportage and street.': 'Perspectiva natural, similar a la vista humana. Excelente para reportajes y calle.',
+      'Brings distant objects closer and compresses perspective significantly. Very blurred background.': 'Acerca objetos lejanos y comprime mucho la perspectiva. Fondo muy desenfocado.',
+      'Natural smartphone style, great depth of field, visible digital processing.': 'Estilo natural de smartphone, gran profundidad de campo, procesamiento digital visible.',
+      'Ocurrió un error al generar los prompts. Por favor, intenta de nuevo.': 'An error occurred while generating the prompts. Please try again.',
+      'Please upload at least one image.': 'Por favor, sube al menos una imagen.',
+      '¡Invitación recibida! {inviter} te ha invitado al tema: {topicTitle}': 'Invitation received! {inviter} has invited you to the topic: {topicTitle}',
+      'Celular ({model})': 'Smartphone ({model})',
+      'Generic model': 'Modelo genérico',
+      'Select File': 'Seleccionar Archivo',
+      'Or use a link': 'O usa un enlace',
+      'Load URL': 'Cargar URL',
+      'Got it': 'Entendido',
+      'Undo': 'Deshacer',
+      'More options': 'Más opciones',
+      'Account Settings': 'Ajustes de cuenta',
+      'Herramientas': 'Herramientas',
+      'Comunidad': 'Comunidad',
+      'Escena': 'Escena',
+      'Prompting General': 'Prompting General',
+      'Recreación': 'Recreación',
+      'Variaciones': 'Variaciones',
+      'Flow': 'Flow',
+      'Alquimia': 'Alquimia',
+      'Feed': 'Feed',
+      'Co-Working': 'Co-Working',
+      'Wide field of view, ideal for landscapes or architecture. May distort edges.': 'Campo de visión amplio, ideal para paisajes o arquitectura. Puede distorsionar los bordes.',
+      'Natural perspective, similar to human vision. Excellent for reportage and street.': 'Perspectiva natural, similar a la visión humana. Excelente para reportajes y calle.',
+      'The standard. Very versatile, ideal for half-body portraits and general use.': 'El estándar. Muy versátil, ideal para retratos de medio cuerpo y uso general.',
+      'Classic for portraits. Compresses the background and favors facial features.': 'Clásico para retratos. Comprime el fondo y favorece los rasgos faciales.',
+      'Brings distant objects closer and compresses perspective significantly. Very blurred background.': 'Acerca objetos distantes y comprime la perspectiva significativamente. Fondo muy desenfocado.',
+      'Captures a lot of information from the environment. Useful in closed spaces.': 'Captura mucha información del entorno. Útil en espacios cerrados.',
+      'Natural smartphone style, great depth of field, visible digital processing.': 'Estilo natural de smartphone, gran profundidad de campo, procesamiento digital visible.',
+      'Specific lens effect to alter the image aesthetics.': 'Efecto de lente específico para alterar la estética de la imagen.',
+      'Visual Categories': 'Categorías Visuales',
+      'Manage Categories and Prompts': 'Gestionar Categorías y Prompts',
+      'Custom Category': 'Categoría Personalizada',
+      'Click on the blocks to add them to your prompt.': 'Haz clic en los bloques para añadirlos a tu prompt.',
+      'Subcategories': 'Subcategorías',
+      'No items in this category': 'No hay elementos en esta categoría',
+      'Back to top-level category': 'Volver a la categoría principal',
+      '(View More)': '(Ver más)',
+      'Filter...': 'Filtrar...',
+      'Expand structure': 'Expandir estructura',
+      'Collapse structure': 'Contraer estructura',
+      'Expand': 'Expandir',
+      'Collapse': 'Contraer',
+      'Manage': 'Gestionar',
+      'Select blocks on the left or ask something in the chat to start.': 'Selecciona bloques a la izquierda o pregunta algo en el chat para empezar.',
+      'Custom': 'Personalizado',
+      // Category Labels from constants.ts
+      'Visual Result': 'Resultado Visual',
+      'Main Focus': 'Enfoque Principal',
+      'Scene Type': 'Tipo de Escena',
+      'Environment': 'Entorno',
+      'Action / Situation': 'Acción / Situación',
+      'Movement': 'Movimiento',
+      'Gesticulation': 'Gesticulación',
+      'Exposed Parts': 'Partes Expuestas',
+      'Camera / Angle': 'Cámara / Ángulo',
+      'Lens / Parameters': 'Lente / Parámetros',
+      'Lighting': 'Iluminación',
+      'Realism': 'Realismo',
+      'Outfit / Styling': 'Atuendo / Estilo',
+      'Makeup': 'Maquillaje',
+      'Palette / Color': 'Paleta / Color',
+      'Background & Props': 'Fondo y Accesorios',
+      'Intention': 'Intención',
+      'Body Details': 'Detalles del Cuerpo',
+      'Image Qualities': 'Calidades de Imagen',
+      'Restrictions': 'Restricciones',
+      'My Prompts': 'Mis Prompts',
+      'Artistic Style': 'Estilo Artístico',
+      'Main Subject': 'Sujeto Principal',
+      'Environment / Landscape': 'Entorno / Paisaje',
+      'Camera / Composition': 'Cámara / Composición',
+      'Atmosphere / Mood': 'Atmósfera / Estado de ánimo',
+      'Color Palette': 'Paleta de Colores',
+      'Detail Level': 'Nivel de Detalle',
+      // Influencer Blocks - Visual Result
+      'Casual spontaneous': 'Casual espontáneo',
+      'Natural selfie': 'Selfie natural',
+      'Magazine editorial': 'Editorial de revista',
+      'Professional studio': 'Estudio profesional',
+      'Cinematic': 'Cinematográfico',
+      'Aesthetic': 'Estético',
+      'Film grain': 'Grano de película',
+      'Product commercial': 'Comercial de producto',
+      'Intimate portrait': 'Retrato íntimo',
+      'Urban lifestyle': 'Estilo de vida urbano',
+      'Vintage polaroid': 'Polaroid vintage',
+      'Disposable camera': 'Cámara desechable',
+      'Street photography': 'Fotografía callejera',
+      'Haute couture': 'Alta costura',
+      'Dark fantasy': 'Fantasía oscura',
+      // Main Focus
+      'Selfie': 'Selfie',
+      'Face focus': 'Enfoque en la cara',
+      'Feet focus': 'Enfoque en los pies',
+      'Neck focus': 'Enfoque en el cuello',
+      'Environment focus': 'Enfoque en el entorno',
+      'Gesture focus': 'Enfoque en el gesto',
+      'Background interaction': 'Interacción con el fondo',
+      'Lips focus': 'Enfoque en los labios',
+      'Eyes focus': 'Enfoque en los ojos',
+      'Hands focus': 'Enfoque en las manos',
+      'Silhouette focus': 'Enfoque en la silueta',
+      // Scene Type
+      'In bedroom': 'En el dormitorio',
+      'In bed': 'En la cama',
+      'In kitchen': 'En la cocina',
+      'On the street': 'En la calle',
+      'At a concert': 'En un concierto',
+      'At school': 'En la escuela',
+      'Solid background': 'Fondo sólido',
+      'Contrast background': 'Fondo de contraste',
+      'Warm interior': 'Interior cálido',
+      'Everyday exterior': 'Exterior cotidiano',
+      'At the beach': 'En la playa',
+      'In the forest': 'En el bosque',
+      'In a cafe': 'En una cafetería',
+      'At the gym': 'En el gimnasio',
+      'In a bar': 'En un bar',
+      'On public transport': 'En transporte público',
+      'In a botanical garden': 'En un jardín botánico',
+      'In an old library': 'En una biblioteca antigua',
+      'On a rooftop': 'En una azotea',
+      'In an art studio': 'En un estudio de arte',
+      'In a shopping mall': 'En un centro comercial',
+      'At an amusement park': 'En un parque de atracciones',
+      'On a balcony': 'En un balcón',
+      'In an elevator': 'En un ascensor',
+      // Environment
+      'Dawn': 'Amanecer',
+      'Day': 'Día',
+      'Afternoon': 'Tarde',
+      'Night': 'Noche',
+      'Indoor variations': 'Variaciones de interior',
+      'Rainy': 'Lluvioso',
+      'Cloudy': 'Nublado',
+      'Snowy': 'Nevado',
+      'Dense fog': 'Niebla densa',
+      'Thunderstorm': 'Tormenta eléctrica',
+      'Purple sunset': 'Atardecer púrpura',
+      'Morning mist light': 'Luz de niebla matutina',
+      'Sweltering heat': 'Calor sofocante',
+      'Strong wind': 'Viento fuerte',
+      // Action / Situation
+      'Walking': 'Caminando',
+      'Posing alone': 'Posando sola',
+      'Eating': 'Comiendo',
+      'Hanging out with friends': 'Pasando el rato con amigos',
+      'Taking selfie': 'Tomando selfie',
+      'Showing product': 'Mostrando producto',
+      'Sitting resting': 'Sentada descansando',
+      'Interacting with object': 'Interactuando con objeto',
+      'Candid moment': 'Momento espontáneo',
+      'Dancing': 'Bailando',
+      'Reading a book': 'Leyendo un libro',
+      'Drinking coffee': 'Bebiendo café',
+      'Looking at phone': 'Mirando el teléfono',
+      'Adjusting hair': 'Ajustándose el pelo',
+      'Working out': 'Haciendo ejercicio',
+      'Listening to music': 'Escuchando música',
+      'Painting/Drawing': 'Pintando/Dibujando',
+      'Cooking': 'Cocinando',
+      'Talking on phone': 'Hablando por teléfono',
+      'Meditating': 'Meditando',
+      'Taking photos': 'Tomando fotos',
+      'Waiting for bus': 'Esperando el autobús',
+      'Applying makeup': 'Aplicándose maquillaje',
+      'Whispering': 'Susurrando',
+      // Movement
+      'Completely still': 'Completamente quieta',
+      'Walking (motion)': 'Caminando (movimiento)',
+      'Slight motion blur': 'Ligero desenfoque de movimiento',
+      'Heavy motion (running)': 'Movimiento pesado (corriendo)',
+      'Rotating angle': 'Ángulo de rotación',
+      'Zoom in/out': 'Zoom in/out',
+      'Light trails (night)': 'Estelas de luz (noche)',
+      'Hair in the wind': 'Pelo al viento',
+      'Clothes fluttering': 'Ropa ondeando',
+      'Jumping': 'Saltando',
+      'Free fall': 'Caída libre',
+      'Quick spin': 'Giro rápido',
+      // Gesticulation
+      'Matching expression': 'Expresión acorde',
+      'Believable hands': 'Manos creíbles',
+      'Natural posture': 'Postura natural',
+      'Looking at camera': 'Mirando a cámara',
+      'Looking away': 'Mirando hacia otro lado',
+      'Wide smile': 'Sonrisa amplia',
+      'Serious expression': 'Expresión seria',
+      'Wink': 'Guiño',
+      'Biting lip': 'Mordiéndose el labio',
+      'Surprise': 'Sorpresa',
+      'Subtle anger': 'Enojo sutil',
+      'Melancholic sadness': 'Tristeza melancólica',
+      'Uncontrollable laughter': 'Risa incontrolable',
+      'Boredom': 'Aburrimiento',
+      'Seduction': 'Seducción',
+      'Concentration': 'Concentración',
+      // Exposed Parts
+      'Visible arms': 'Brazos visibles',
+      'Abdomen (crop top)': 'Abdomen (crop top)',
+      'Visible legs': 'Piernas visibles',
+      'Visible thighs': 'Muslos visibles',
+      'Visible feet': 'Pies visibles',
+      'Visible hands': 'Manos visibles',
+      'Visible back': 'Espalda visible',
+      'Visible knees': 'Rodillas visibles',
+      'Visible shoulders': 'Hombros visibles',
+      'Visible elbows': 'Codos visibles',
+      'Visible neck': 'Cuello visible',
+      'Topless': 'Topless',
+      'Bottomless': 'Bottomless',
+      'Full nudity': 'Nude completo',
+      'Visible nipples': 'Pezones visibles',
+      'Visible vagina': 'Vagina visible',
+      'Visible penis': 'Pene visible',
+      'Exposed buttocks': 'Glúteos expuestos',
+      // Camera / Angle
+      'Close up': 'Primer plano',
+      'Medium shot': 'Plano medio',
+      'Full body': 'Cuerpo completo',
+      'High angle': 'Ángulo alto (Picado)',
+      'Low angle': 'Ángulo bajo (Contrapicado)',
+      'Selfie angle': 'Ángulo de selfie',
+      'Side angle': 'Ángulo lateral',
+      'Centered composition': 'Composición centrada',
+      'Paparazzi style': 'Estilo paparazzi',
+      'Bird\'s eye view': 'Vista de pájaro',
+      'Worm\'s eye view': 'Vista de gusano',
+      'Dutch angle': 'Ángulo holandés',
+      'Detail shot': 'Plano de detalle',
+      'From behind': 'Desde atrás',
+      'Over the shoulder': 'Sobre el hombro',
+      'Extreme wide shot': 'Gran plano general',
+      // Lenses / Parameters
+      '24mm': '24mm',
+      '35mm': '35mm',
+      '50mm': '50mm',
+      '85mm': '85mm',
+      'Telephoto': 'Teleobjetivo',
+      'Wide angle': 'Gran angular',
+      'f/1.8': 'f/1.8',
+      'Blurred background': 'Fondo desenfocado (Bokeh)',
+      'Studio sharpness': 'Nitidez de estudio',
+      'Fisheye': 'Ojo de pez',
+      'Anamorphic lens': 'Lente anamórfica',
+      'iPhone camera': 'Cámara de iPhone',
+      'Macro lens': 'Lente macro',
+      'Vintage filter': 'Filtro vintage',
+      // Lighting
+      'Natural light': 'Luz natural',
+      'Window light': 'Luz de ventana',
+      'Golden hour': 'Hora dorada',
+      'Artificial light': 'Luz artificial',
+      'Hard light': 'Luz dura',
+      'Soft light': 'Luz suave',
+      'Color neon': 'Neón de color',
+      'Backlighting': 'Contraluz',
+      'Editorial lighting': 'Iluminación editorial',
+      'Moonlight': 'Luz de luna',
+      'Candlelight': 'Luz de vela',
+      'Direct flash': 'Flash directo',
+      'Dramatic lighting': 'Iluminación dramática',
+      'Disco light': 'Luz de discoteca',
+      'Sunset light': 'Luz de atardecer',
+      'Volumetric light': 'Luz volumétrica',
+      // Realism
+      'Visible pores': 'Poros visibles',
+      'Natural texture': 'Textura natural',
+      'Micro-imperfections': 'Micro-imperfecciones',
+      'Subtle wrinkles': 'Arrugas sutiles',
+      'Real hair': 'Pelo real',
+      'Fabric folds': 'Pliegues de tela',
+      'Natural shadows': 'Sombras naturales',
+      'Realistic skin (body)': 'Piel realista (cuerpo)',
+      'Freckles and moles': 'Pecas y lunares',
+      'Light sweat': 'Sudor ligero',
+      'Subtle body hair': 'Vello corporal sutil',
+      'Subtle scars': 'Cicatrices sutiles',
+      'Visible veins': 'Venas visibles',
+      // Outfit / Styling
+      'Dark outfit': 'Atuendo oscuro',
+      'Streetwear': 'Streetwear',
+      'Casual': 'Casual',
+      'Elegant': 'Elegante',
+      'Minimalist': 'Minimalista',
+      'Black crop top': 'Crop top negro',
+      'Dress': 'Vestido',
+      'Tattoos': 'Tatuajes',
+      'Dark makeup': 'Maquillaje oscuro',
+      'Sportswear': 'Ropa deportiva',
+      'Swimsuit': 'Traje de baño',
+      'Lingerie': 'Lencería',
+      'Winter clothing': 'Ropa de invierno',
+      'Sunglasses': 'Gafas de sol',
+      'Transparent clothing': 'Ropa transparente',
+      'Gothic style': 'Estilo gótico',
+      'Leather clothing': 'Ropa de cuero',
+      'School uniform': 'Uniforme escolar',
+      'Pajamas': 'Pijama',
+      'Silk clothing': 'Ropa de seda',
+      // Makeup
+      'Natural / No-makeup': 'Natural / Sin maquillaje',
+      'E-girl': 'E-girl',
+      'Gloss only': 'Solo brillo',
+      'Graphic eyeliner': 'Delineado gráfico',
+      'Smokey eye': 'Ojo ahumado',
+      'Red lips': 'Labios rojos',
+      'Drag makeup': 'Maquillaje drag',
+      'Faux freckles': 'Pecas falsas',
+      'Neon eyeshadow': 'Sombra de ojos neón',
+      'Soft glam': 'Glamour suave',
+      'Euphoria style': 'Estilo Euphoria',
+      'Fantasy makeup': 'Maquillaje de fantasía',
+      // Palette / Color
+      'Neutrals': 'Neutrales',
+      'Darks': 'Oscuros',
+      'Warms': 'Cálidos',
+      'Colds': 'Fríos',
+      'Monochromatic': 'Monocromático',
+      'High contrast': 'Alto contraste',
+      'Red accents': 'Acentos rojos',
+      'Total black': 'Todo negro',
+      'Pastel tones': 'Tonos pastel',
+      'Black and white': 'Blanco y negro',
+      'High saturation': 'Alta saturación',
+      'Earth tones': 'Tonos tierra',
+      'Gold and black': 'Oro y negro',
+      'Electric blue': 'Azul eléctrico',
+      // Background and Props
+      'Circular rug': 'Alfombra circular',
+      'Mirror': 'Espejo',
+      'Posters': 'Pósteres',
+      'Messy bed': 'Cama desordenada',
+      'Warm lamp': 'Lámpara cálida',
+      'Smartphone': 'Smartphone',
+      'Props': 'Accesorios',
+      'Indoor plants': 'Plantas de interior',
+      'Coffee mug': 'Taza de café',
+      'Stacked books': 'Libros apilados',
+      'Musical instrument': 'Instrumento musical',
+      'Sports car': 'Coche deportivo',
+      'Open laptop': 'Portátil abierto',
+      'Large headphones': 'Auriculares grandes',
+      'Vintage camera': 'Cámara vintage',
+      'Pet (dog/cat)': 'Mascota (perro/gato)',
+      'Fast food': 'Comida rápida',
+      'Energy drink': 'Bebida energética',
+      'Backpack': 'Mochila',
+      'Skateboard': 'Monopatín',
+      // Intention
+      'For social media': 'Para redes sociales',
+      'For brand': 'Para marca',
+      'Casual campaign': 'Campaña casual',
+      'Aspirational image': 'Imagen aspiracional',
+      'Lookbook': 'Lookbook',
+      'Documentary photography': 'Fotografía documental',
+      'Conceptual art': 'Arte conceptual',
+      'Movie poster': 'Póster de película',
+      // Body Details
+      'Height: Tall': 'Altura: Alta',
+      'Height: Average': 'Altura: Promedio',
+      'Height: Short': 'Altura: Baja',
+      'Long legs': 'Piernas largas',
+      'Bust size': 'Tamaño de busto',
+      'Porcelain skin': 'Piel de porcelana',
+      'Moisturized skin': 'Piel hidratada',
+      'Dry skin': 'Piel seca',
+      'Natural/Healthy skin': 'Piel natural/saludable',
+      'Natural redness (Feet)': 'Enrojecimiento natural (Pies)',
+      'Natural redness (Knees)': 'Enrojecimiento natural (Rodillas)',
+      'Natural redness (Cheeks)': 'Enrojecimiento natural (Mejillas)',
+      'Birthmark detail': 'Detalle de marca de nacimiento',
+      'Tanned skin': 'Piel bronceada',
+      'Freckled skin (body)': 'Piel con pecas (cuerpo)',
+      'Athletic build': 'Constitución atlética',
+      'Slender build': 'Constitución esbelta',
+      'Curvy build': 'Constitución con curvas',
+      'Pale skin': 'Piel pálida',
+      'Brown skin': 'Piel morena',
+      'Dark skin': 'Piel oscura',
+      'Subtle veins': 'Venas sutiles',
+      'Body: Hourglass': 'Cuerpo: Reloj de arena',
+      'Body: Pear': 'Cuerpo: Pera',
+      'Body: Rectangular': 'Cuerpo: Rectangular',
+      'Legs: Muscular': 'Piernas: Musculosas',
+      'Legs: Slender': 'Piernas: Esbeltas',
+      'Feet: High arches': 'Pies: Arcos altos',
+      'Feet: Painted nails': 'Pies: Uñas pintadas',
+      'Feet: Pinkish soles': 'Pies: Plantas rosadas',
+      'Detail: Prominent collarbones': 'Detalle: Clavículas prominentes',
+      'Detail: Defined back': 'Detalle: Espalda definida',
+      'Detail: Delicate hands': 'Detalle: Manos delicadas',
+      'Detail: Long neck': 'Detalle: Cuello largo',
+      'Skin: Subtle body hair': 'Piel: Vello corporal sutil',
+      'Skin: Stretch marks': 'Piel: Estrías',
+      'Skin: Cellulite': 'Piel: Celulitis',
+      // Image Quality
+      'Low Quality': 'Baja Calidad',
+      'Medium Quality': 'Calidad Media',
+      'High Quality': 'Alta Calidad',
+      '4K': '4K',
+      '8K': '8K',
+      'Perfect Plastic Skin': 'Piel de plástico perfecta',
+      'Realistic HD': 'HD Realista',
+      'Raw Photo': 'Foto Raw',
+      // Restrictions / Negatives
+      'Avoid deformed hands': 'Evitar manos deformes',
+      'Avoid overprocessed look': 'Evitar aspecto sobreprocesado',
+      'Avoid plastic skin': 'Evitar piel de plástico',
+      'Avoid impossible poses': 'Evitar poses imposibles',
+      'Avoid empty expressions': 'Evitar expresiones vacías',
+      'Avoid text': 'Evitar texto',
+      'Avoid facial asymmetry': 'Evitar asimetría facial',
+      'Avoid censorship': 'Evitar censura',
+      // General Blocks - Artistic Style
+      'Realistic Photography': 'Fotografía Realista',
+      'Digital Illustration': 'Ilustración Digital',
+      'Oil Painting': 'Pintura al Óleo',
+      'Concept Art': 'Arte de Concepto',
+      'Cyberpunk': 'Cyberpunk',
+      'Steampunk': 'Steampunk',
+      'Watercolor': 'Acuarela',
+      'Anime / Manga': 'Anime / Manga',
+      'Low Poly / 3D': 'Low Poly / 3D',
+      // Main Subject
+      'Modern Architecture': 'Arquitectura Moderna',
+      'Futuristic Vehicle': 'Vehículo Futurista',
+      'Fantastic Creature': 'Criatura Fantástica',
+      'Everyday Object': 'Objeto Cotidiano',
+      'Food / Drink': 'Comida / Bebida',
+      'Ancient Ruins': 'Ruinas Antiguas',
+      'Spaceship': 'Nave Espacial',
+      // Environment / Landscape
+      'Futuristic City': 'Ciudad Futurista',
+      'Magical Forest': 'Bosque Mágico',
+      'Desert': 'Desierto',
+      'Snowy Mountains': 'Montañas Nevadas',
+      'Underwater Background': 'Fondo Subacuático',
+      'Outer Space': 'Espacio Exterior',
+      'Cozy Interior': 'Interior Acogedor',
+      // Lighting
+      'Natural Light (Day)': 'Luz Natural (Día)',
+      'Golden Hour': 'Hora Dorada',
+      'Studio Lighting': 'Iluminación de Estudio',
+      'Neon Light': 'Luz de Neón',
+      'Moonlight': 'Luz de Luna',
+      'Volumetric Light': 'Luz Volumétrica',
+      'Low Key Lighting': 'Iluminación en Clave Baja',
+      // Camera / Composition
+      'Wide Shot': 'Plano General',
+      'Close Up': 'Primer Plano',
+      'Bird\'s Eye View': 'Vista de Pájaro',
+      'Worm\'s Eye View': 'Vista de Gusano',
+      'Symmetry': 'Simetría',
+      'Rule of Thirds': 'Regla de los Tercios',
+      'Depth of Field': 'Profundidad de Campo',
+      // Atmosphere / Mood
+      'Epic / Majestic': 'Épico / Majestuoso',
+      'Mysterious / Dark': 'Misterioso / Oscuro',
+      'Quiet / Peaceful': 'Tranquilo / Pacífico',
+      'Chaotic / Dynamic': 'Caótico / Dinámico',
+      'Melancholic': 'Melancólico',
+      'Cheerful / Vibrant': 'Alegre / Vibrante',
+      // Color Palette
+      'Pastel Colors': 'Colores Pastel',
+      'Black and White': 'Blanco y Negro',
+      'Warm Tones': 'Tonos Cálidos',
+      'Cool Tones': 'Tonos Fríos',
+      'High Contrast': 'Alto Contraste',
+      'Earth Tones': 'Tonos Tierra',
+      // Detail Level
+      'Ultra Detailed': 'Ultra Detallado',
+      'Minimalist': 'Minimalista',
+      'Abstract': 'Abstracto',
+      'Textured': 'Texturizado',
+      // Image Qualities (General)
+      'Low Quality': 'Baja Calidad',
+      'Medium Quality': 'Calidad Media',
+      'High Quality': 'Alta Calidad',
+      '4K': '4K',
+      '8K': '8K',
+      'Perfect Plastic Skin': 'Piel de Plástico Perfecta',
+      'Masterpiece': 'Obra Maestra',
+      'HDR': 'HDR',
+      // Category and Prompt Manager
+      'Content Manager': 'Gestor de Contenido',
+      'Prompts': 'Prompts',
+      'Categories': 'Categorías',
+      'Search...': 'Buscar...',
+      'Prompt Folders': 'Carpetas de Prompts',
+      'New Folder': 'Nueva Carpeta',
+      'All Prompts': 'Todos los Prompts',
+      'Base Categories': 'Categorías Base',
+      'My Categories': 'Mis Categorías',
+      'My Saved Prompts': 'Mis Prompts Guardados',
+      'Category Details': 'Detalles de la Categoría',
+      'My Custom Categories': 'Mis Categorías Personalizadas',
+      'Showing {n} prompts': 'Mostrando {n} prompts',
+      'Manage items and subcategories': 'Gestionar elementos y subcategorías',
+      'Showing {n} custom categories': 'Mostrando {n} categorías personalizadas',
+      'Add Item': 'Añadir Elemento',
+      'Add {type}': 'Añadir {type}',
+      'Items / Variants': 'Elementos / Variantes',
+      'Base': 'Base',
+      'Subcategories / Folders': 'Subcategorías / Carpetas',
+      'New Subcategory': 'Nueva Subcategoría',
+      'Top-level category': 'Categoría de nivel superior',
+      'Edit Category': 'Editar Categoría',
+      'Add Category': 'Añadir Categoría',
+      'Name': 'Nombre',
+      'e.g. My Style': 'ej. Mi Estilo',
+      'Parent Category (Optional)': 'Categoría Padre (Opcional)',
+      'None (Top-level)': 'Ninguna (Nivel superior)',
+      'Icon': 'Icono',
+      'Save Category': 'Guardar Categoría',
+      'Edit Item': 'Editar Elemento',
+      'Label': 'Etiqueta',
+      'e.g. Cinematic Lighting': 'ej. Iluminación Cinematográfica',
+      'Prompt Text': 'Texto del Prompt',
+      'The text that will be added to the prompt...': 'El texto que se añadirá al prompt...',
+      'Mark if this item contains adult content': 'Marcar si este elemento contiene contenido para adultos',
+      'Save Item': 'Guardar Elemento',
+      'Edit Prompt': 'Editar Prompt',
+      'Add Prompt': 'Añadir Prompt',
+      'e.g. Hyper-realistic Portrait': 'ej. Retrato Hiperrealista',
+      'Content': 'Contenido',
+      'Write your prompt here...': 'Escribe tu prompt aquí...',
+      'Folder': 'Carpeta',
+      'No Folder': 'Sin Carpeta',
+      'Save Prompt': 'Guardar Prompt',
+      'Delete Category': 'Eliminar Categoría',
+      'Delete Folder': 'Eliminar Carpeta',
+      'Delete Prompt': 'Eliminar Prompt',
+      'Delete Item': 'Eliminar Elemento',
+      'Are you sure you want to delete this category?': '¿Estás seguro de que quieres eliminar esta categoría?',
+      'All blocks inside will also be deleted.': 'Todos los bloques en su interior también serán eliminados.',
+      'Are you sure you want to delete this folder?': '¿Estás seguro de que quieres eliminar esta carpeta?',
+      'The prompts inside will not be deleted, but will lose their association.': 'Los prompts en su interior no serán eliminados, pero perderán su asociación.',
+      'Are you sure you want to delete this item?': '¿Estás seguro de que quieres eliminar este elemento?',
+      'This action cannot be undone.': 'Esta acción no se puede deshacer.',
+      'Are you sure you want to delete this prompt?': '¿Estás seguro de que quieres eliminar este prompt?',
+      'Title': 'Título',
+      'NSFW Content': 'Contenido NSFW',
+      'Cancel': 'Cancelar',
+      'Prompt': 'Prompt',
+      'Category': 'Categoría',
+      'Custom': 'Personalizado',
+      'Invitation received! {inviter} invited you to the topic: {topicTitle}': '¡Invitación recibida! {inviter} te ha invitado al tema: {topicTitle}',
+      'Copied successfully to clipboard': 'Copiado exitosamente en el portapapeles',
+      'Please upload at least one image.': 'Por favor, sube al menos una imagen.',
+      'An error occurred while generating prompts. Please try again.': 'Ocurrió un error al generar los prompts. Por favor, intenta de nuevo.',
+      'Prompt {n}': 'Prompt {n}',
+      'Could not extract prompt from image.': 'No se pudo extraer el prompt de la imagen.',
+      'An error occurred while analyzing the image.': 'Ocurrió un error al analizar la imagen.',
+      'Personalize your SceneCraft AI experience': 'Personaliza tu experiencia en SceneCraft AI',
+      'Hi': 'Hola',
+      'Account': 'Cuenta',
+      'Connected as': 'Conectado como',
+      'Log in to save your progress': 'Inicia sesión para guardar tu progreso',
+      'Premium Plan': 'Plan Premium',
+      'Free Plan': 'Plan Gratuito',
+      'Log Out': 'Cerrar Sesión',
+      'Visual Theme': 'Tema Visual',
+      'Switch between dark and light mode': 'Cambiar entre modo oscuro y claro',
+      'Dark': 'Oscuro',
+      'Light': 'Claro',
+      'Allow explicit blocks and terms': 'Permitir bloques y términos explícitos',
+      'Interface Language': 'Idioma de la Interfaz',
+      'Change the application language': 'Cambiar el idioma de la aplicación',
+      'Prompt Language': 'Idioma del Prompt',
+      'Output language for generated prompts': 'Idioma de salida para los prompts generados',
+      'Manual Generation': 'Generación Manual',
+      'Enable manual editing of the final prompt': 'Habilitar edición manual del prompt final',
+      'UI Style': 'Estilo de UI',
+      'Preset layouts for the platform': 'Diseños preestablecidos para la plataforma',
+      'Modern (Default)': 'Moderno (Predeterminado)',
+      'Glassmorphism': 'Glassmorphism',
+      'Brutalist': 'Brutalista',
+      'Accent Color': 'Color de Acento',
+      'Primary color of the interface': 'Color primario de la interfaz',
+      'Emerald (Default)': 'Esmeralda (Predeterminado)',
+      'Blue': 'Azul',
+      'Purple': 'Púrpura',
+      'Rose': 'Rosa',
+      'Amber': 'Ámbar',
+      'Save and Apply': 'Guardar y Aplicar',
+      'Sign In with Google': 'Iniciar Sesión con Google',
+      'Save': 'Guardar',
+      'My Library': 'Mi Biblioteca',
+      'Account Settings': 'Ajustes de Cuenta',
+      'Admin Panel': 'Panel de Administración',
+      'Admin': 'Admin',
+      'Wide field of view, ideal for landscapes or architecture. May distort edges.': 'Campo de visión amplio, ideal para paisajes o arquitectura. Puede distorsionar los bordes.',
+      'Natural perspective, similar to human vision. Excellent for reportage and street.': 'Perspectiva natural, similar a la visión humana. Excelente para reportajes y calle.',
+      'The standard. Very versatile, ideal for half-body portraits and general use.': 'El estándar. Muy versátil, ideal para retratos de medio cuerpo y uso general.',
+      'Classic for portraits. Compresses the background and favors facial features.': 'Clásico para retratos. Comprime el fondo y favorece los rasgos faciales.',
+      'Brings distant objects closer and compresses perspective significantly. Very blurred background.': 'Acerca los objetos distantes y comprime significativamente la perspectiva. Fondo muy desenfocado.',
+      'Captures a lot of information from the environment. Useful in closed spaces.': 'Captura mucha información del entorno. Útil en espacios cerrados.',
+      'Natural smartphone style, great depth of field, visible digital processing.': 'Estilo natural de smartphone, gran profundidad de campo, procesamiento digital visible.',
+      'Specific lens effect to alter the image aesthetics.': 'Efecto de lente específico para alterar la estética de la imagen.',
+      'Visual Categories': 'Categorías Visuales',
+      'Manage Categories and Prompts': 'Gestionar Categorías y Prompts',
+      'Custom Category': 'Categoría Personalizada',
+      'Click on the blocks to add them to your prompt.': 'Haz clic en los bloques para añadirlos a tu prompt.',
+      'Subcategories': 'Subcategorías',
+      'Items': 'Elementos',
+      'Manage': 'Gestionar',
+      'No items in this category': 'No hay elementos en esta categoría',
+      'Back to top-level category': 'Volver a la categoría principal',
+      '(View More)': '(Ver más)',
+      'Filter...': 'Filtrar...',
+      'NEWS:': 'NOTICIAS:',
+      'Scene Structure': 'Estructura de la Escena',
+      'Expand structure': 'Expandir estructura',
+      'Collapse structure': 'Contraer estructura',
+      'Expand': 'Expandir',
+      'Collapse': 'Contraer',
+      'Select blocks on the left or ask something in the chat to start.': 'Selecciona bloques a la izquierda o pregunta algo en el chat para comenzar.',
+      'Prompt Final': 'Prompt Final',
+      'Magic Enhance (AI)': 'Mejora Mágica (IA)',
+      'Limit': 'Límite',
+      'Character limit': 'Límite de caracteres',
+      'Optimize for limit': 'Optimizar para el límite',
+      'GENERATE NOW': 'GENERAR AHORA',
+      'Editing banned words': 'Editando palabras prohibidas',
+      'Compiling...': 'Compilando...',
+      'Switch to Auto Generation': 'Cambiar a Generación Automática',
+      'Switch to Manual Generation': 'Cambiar a Generación Manual',
+      'Manual': 'Manual',
+      'Auto': 'Auto',
+      'AI Target (Optimization)': 'Objetivo de IA (Optimización)',
+      'Code Generation': 'Generación de Código',
+      'Session History (Temporary)': 'Historial de Sesión (Temporal)',
+      'Session History': 'Historial de Sesión',
+      'The generated prompt will appear here...': 'El prompt generado aparecerá aquí...',
+      'View highlighted': 'Ver resaltado',
+      'Edit plain text': 'Editar texto plano',
+      'Copy prompt': 'Copiar prompt',
+      'Ex: Make it more casual, change to neon light, add a mirror...': 'Ej: Hazlo más casual, cambia a luz de neón, añade un espejo...',
+      'Image Recreation': 'Recreación de Imagen',
+      'Upload a reference image to extract a detailed prompt.': 'Sube una imagen de referencia para extraer un prompt detallado.',
+      'Change Image': 'Cambiar Imagen',
+      'Analyzing...': 'Analizando...',
+      'Analyzed': 'Analizado',
+      'Extract Prompt': 'Extraer Prompt',
+      'Extracted Prompt': 'Prompt Extraído',
+      'Clean Prompt': 'Limpiar Prompt',
+      'Revert': 'Revertir',
+      'Save Style': 'Guardar Estilo',
+      'Integrate into Scene': 'Integrar en la Escena',
+      'Prompt Variations': 'Variaciones de Prompt',
+      'Generate variations of your current prompt by changing specific aspects.': 'Genera variaciones de tu prompt actual cambiando aspectos específicos.',
+      'Back to Prompting': 'Volver a Prompting',
+      'No current prompt to vary. Go to the Prompting tab and create one.': 'No hay un prompt actual para variar. Ve a la pestaña de Prompting y crea uno.',
+      'Change Pose': 'Cambiar Pose',
+      'Change Lighting': 'Cambiar Iluminación',
+      'Change Environment': 'Cambiar Entorno',
+      'Change Style': 'Cambiar Estilo',
+      'Change Clothing': 'Cambiar Ropa',
+      'Change Expression': 'Cambiar Expresión',
+      'Change Weather': 'Cambiar Clima',
+      'Change Time of Day': 'Cambiar Hora del Día',
+      'Change Camera Angle': 'Cambiar Ángulo de Cámara',
+      'Change Color Palette': 'Cambiar Paleta de Colores',
+      'Add Element': 'Añadir Elemento',
+      'Remove Element': 'Eliminar Elemento',
+      'Change Age': 'Cambiar Edad',
+      'Change Era': 'Cambiar Época',
+      'Change General Emotion': 'Cambiar Emoción General',
+      'Ex: something dramatic...': 'Ej: algo dramático...',
+      'Apply': 'Aplicar',
+      'Prompt Flow (Storytelling)': 'Flujo de Prompts (Storytelling)',
+      'Create a story or sequence of events based on your current prompt.': 'Crea una historia o secuencia de eventos basada en tu prompt actual.',
+      'No current prompt. Go to the Prompting tab and create one.': 'No hay un prompt actual. Ve a la pestaña de Prompting y crea uno.',
+      'Story Configuration': 'Configuración de la Historia',
+      'Describe the story or general context:': 'Describe la historia o el contexto general:',
+      'Ex: A heavy day at work, from waking up until returning home exhausted...': 'Ej: Un día pesado en el trabajo, desde despertar hasta volver a casa agotado...',
+      'Number of prompts (Max 20):': 'Número de prompts (Máx 20):',
+      'Final Prompt Position:': 'Posición del Prompt Final:',
+      'Automatic (Based on coherence)': 'Automático (Basado en coherencia)',
+      'Position': 'Posición',
+      'Generating Flow...': 'Generando Flujo...',
+      'Generate Story': 'Generar Historia',
+      'Escena': 'Escena',
+      'Prompting General': 'Prompting General',
+      'Recreación': 'Recreación',
+      'Variaciones': 'Variaciones',
+      'Flow': 'Flow',
+      'Alquimia': 'Alquimia',
+      'Feed': 'Feed',
+      'Co-Working': 'Co-Working',
     },
     // Add other languages as needed
   };
@@ -677,8 +1523,8 @@ export default function App() {
 
   const handleDeleteCategory = async (id: string) => {
     showConfirm(
-      'Eliminar Categoría',
-      '¿Estás seguro de que quieres eliminar esta categoría? Todos los bloques dentro de ella también se eliminarán.',
+      t('Delete Category'),
+      t('Are you sure you want to delete this category?') + ' ' + t('All blocks inside will also be deleted.'),
       async () => {
         if (currentUser) {
           try {
@@ -730,8 +1576,8 @@ export default function App() {
 
   const handleDeleteFolder = async (id: string) => {
     showConfirm(
-      'Eliminar Carpeta',
-      '¿Estás seguro de que quieres eliminar esta carpeta? Los prompts dentro de ella no se eliminarán, pero perderán su asociación.',
+      t('Delete Folder'),
+      t('Are you sure you want to delete this folder?') + ' ' + t('The prompts inside will not be deleted, but will lose their association.'),
       async () => {
         if (currentUser) {
           try {
@@ -770,8 +1616,8 @@ export default function App() {
 
   const handleDeleteCustomBlock = async (id: string) => {
     showConfirm(
-      'Eliminar Item',
-      '¿Estás seguro de que quieres eliminar este item? Esta acción no se puede deshacer.',
+      t('Delete Item'),
+      t('Are you sure you want to delete this item?') + ' ' + t('This action cannot be undone.'),
       async () => {
         if (currentUser) {
           try {
@@ -810,8 +1656,8 @@ export default function App() {
 
   const handleDeletePrompt = async (id: string) => {
     showConfirm(
-      'Eliminar Prompt',
-      '¿Estás seguro de que quieres eliminar este prompt? Esta acción no se puede deshacer.',
+      t('Delete Prompt'),
+      t('Are you sure you want to delete this prompt?') + ' ' + t('This action cannot be undone.'),
       async () => {
         if (currentUser) {
           try {
@@ -837,13 +1683,13 @@ export default function App() {
 
   const handleCopyPrompt = (text: string) => {
     navigator.clipboard.writeText(text);
-    setCopyToast({show: true, message: 'Copiado exitosamente en el portapapeles'});
+    setCopyToast({show: true, message: t('Copied successfully to clipboard')});
     setTimeout(() => setCopyToast({show: false, message: ''}), 3000);
   };
 
   const handleAlquimiaGenerate = async () => {
     if (alquimiaImages.every(img => img === null)) {
-      setAlquimiaError("Por favor, sube al menos una imagen.");
+      setAlquimiaError(t("Please upload at least one image."));
       return;
     }
 
@@ -857,7 +1703,7 @@ export default function App() {
         contents: [
           {
             parts: [
-              { text: "Analiza estas imágenes y genera 5 prompts distintos y coherentes que combinen elementos de todas ellas (sujetos, entorno, iluminación, estilo, etc.). Varía los ángulos de cámara, distancias, poses, interacciones y estilos fotográficos. Devuelve los prompts en un array JSON de strings." },
+              { text: "Analyze these images and generate 5 distinct and coherent prompts that combine elements from all of them (subjects, environment, lighting, style, etc.). Vary camera angles, distances, poses, interactions, and photographic styles. Return the prompts in a JSON array of strings." },
               ...alquimiaImages.filter(img => img !== null).map(img => ({
                 inlineData: {
                   mimeType: "image/jpeg",
@@ -886,7 +1732,7 @@ export default function App() {
       setAlquimiaPrompts(newPrompts);
     } catch (error) {
       console.error("Alquimia error:", error);
-      setAlquimiaError("Ocurrió un error al generar los prompts. Por favor, intenta de nuevo.");
+      setAlquimiaError(t("An error occurred while generating prompts. Please try again."));
     } finally {
       setAlquimiaLoading(false);
     }
@@ -926,7 +1772,7 @@ export default function App() {
   }, [activeCategory, workMode, savedPrompts]);
 
   const handleOpenAddPromptModal = () => {
-    setNewPromptTitle(`Prompt ${savedPrompts.length + 1}`);
+    setNewPromptTitle(t('Prompt {n}').replace('{n}', (savedPrompts.length + 1).toString()));
     setNewPromptContent(compiledPrompt || '');
     setShowAddPromptModal(true);
   };
@@ -1125,7 +1971,7 @@ export default function App() {
 
     newSocket.on('invitation-received', (data) => {
       // Show a simple alert for now, could be a toast
-      alert(`¡Invitación recibida! ${data.inviter} te ha invitado al tema: ${data.topicTitle}`);
+      alert(t('Invitation received! {inviter} invited you to the topic: {topicTitle}').replace('{inviter}', data.inviter).replace('{topicTitle}', data.topicTitle));
     });
 
     return () => {
@@ -1532,9 +2378,8 @@ export default function App() {
     setChatInput('');
     
     // Reset textarea height
-    const textarea = document.querySelector('textarea[placeholder="Ej: Hazlo más casual, cambia a luz de neón, añade un espejo..."]') as HTMLTextAreaElement;
-    if (textarea) {
-      textarea.style.height = 'auto';
+    if (chatTextareaRef.current) {
+      chatTextareaRef.current.style.height = 'auto';
     }
 
     setIsChatting(false);
@@ -1629,7 +2474,7 @@ export default function App() {
     if (smartphoneBlock) {
       const customBlock: Block = {
         ...smartphoneBlock,
-        label: `Celular (${smartphoneModel || 'Modelo genérico'})`,
+        label: t('Smartphone ({model})').replace('{model}', smartphoneModel || t('Generic model')),
         value: `smartphone, ${smartphoneModel || 'modern smartphone'}`
       };
       setUndoStack(prev => [...prev, { blocks: selectedBlocks, instructions: customInstructions }]);
@@ -1644,7 +2489,7 @@ export default function App() {
     if (bustBlock) {
       const customBlock: Block = {
         ...bustBlock,
-        label: `Busto (${bustSize || 'Medida natural'})`,
+        label: t('Bust ({size})').replace('{size}', bustSize || t('Natural measurement')),
         value: `specific bust size, bra cup ${bustSize || 'natural'}, proportional chest`
       };
       setUndoStack(prev => [...prev, { blocks: selectedBlocks, instructions: customInstructions }]);
@@ -1733,9 +2578,9 @@ export default function App() {
     const newBlock: CustomBlock = {
       id: `custom_${Date.now()}`,
       categoryId,
-      label: 'Nueva Subcategoría',
+      label: t('New Subcategory'),
       value: '',
-      title: 'Nueva Subcategoría',
+      title: t('New Subcategory'),
       promptText: '',
       isCustom: true,
       isNsfw: false,
@@ -1836,7 +2681,7 @@ export default function App() {
               onClick={handleUndo}
               disabled={undoStack.length === 0}
               className="text-zinc-400 hover:text-white disabled:opacity-30 disabled:hover:text-zinc-400 transition-colors p-2 rounded-lg hover:bg-zinc-800 hidden sm:block"
-              title="Undo"
+              title={t('Undo')}
             >
               <Icons.Undo2 size={18} />
             </button>
@@ -1845,13 +2690,13 @@ export default function App() {
               className="bg-emerald-500 hover:bg-emerald-600 text-black font-medium text-xs md:text-sm px-3 md:px-4 py-1.5 rounded-full transition-colors flex items-center gap-2"
             >
               <Icons.Save size={14} />
-              <span className="hidden sm:inline">Save</span>
+              <span className="hidden sm:inline">{t('Save')}</span>
             </button>
             <div className="relative">
               <button 
                 onClick={() => setShowHeaderMenu(!showHeaderMenu)}
                 className="p-2 text-zinc-400 hover:text-white transition-colors rounded-lg hover:bg-zinc-800"
-                title="More options"
+                title={t('More options')}
               >
                 <Icons.MoreVertical size={20} />
               </button>
@@ -1871,14 +2716,14 @@ export default function App() {
                         className="flex items-center gap-3 px-3 py-2 text-sm text-zinc-300 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors w-full text-left"
                       >
                         <Icons.BookMarked size={16} />
-                        <span>My Library</span>
+                        <span>{t('My Library')}</span>
                       </button>
                       <button 
                         onClick={() => { setShowSettings(true); setShowHeaderMenu(false); }}
                         className="flex items-center gap-3 px-3 py-2 text-sm text-zinc-300 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors w-full text-left"
                       >
                         <Icons.Settings size={16} />
-                        <span>Account Settings</span>
+                        <span>{t('Account Settings')}</span>
                       </button>
                     </div>
                   </motion.div>
@@ -1914,7 +2759,7 @@ export default function App() {
               onClick={() => { setActiveTabGroup('admin'); setWorkMode('admin'); }}
               className={`px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all shrink-0 ${activeTabGroup === 'admin' ? 'bg-emerald-500 text-black shadow-lg shadow-emerald-500/20' : 'text-zinc-500 hover:text-zinc-300'}`}
             >
-              Admin
+              {t('Admin')}
             </button>
           )}
         </div>
@@ -1947,7 +2792,7 @@ export default function App() {
               </>
             )}
             {activeTabGroup === 'admin' && (
-              <button onClick={() => setWorkMode('admin')} className={`px-3 py-1 text-[10px] md:text-xs font-semibold rounded-md transition-colors shrink-0 ${workMode === 'admin' ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'text-zinc-400 hover:text-red-300'}`}>Admin Panel</button>
+              <button onClick={() => setWorkMode('admin')} className={`px-3 py-1 text-[10px] md:text-xs font-semibold rounded-md transition-colors shrink-0 ${workMode === 'admin' ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'text-zinc-400 hover:text-red-300'}`}>{t('Admin Panel')}</button>
             )}
           </div>
         </div>
@@ -1972,14 +2817,14 @@ export default function App() {
                 </div>
               </div>
               <div className="text-xs text-zinc-300 leading-relaxed">
-                {hoveredBlock === 'len_1' && 'Amplio campo de visión, ideal para paisajes o arquitectura. Puede distorsionar bordes.'}
-                {hoveredBlock === 'len_2' && 'Perspectiva natural, similar a la vista humana. Excelente para reportajes y calle.'}
-                {hoveredBlock === 'len_3' && 'El estándar. Muy versátil, ideal para retratos de medio cuerpo y uso general.'}
-                {hoveredBlock === 'len_4' && 'Clásico para retratos. Comprime el fondo y favorece las facciones del rostro.'}
-                {hoveredBlock === 'len_5' && 'Acerca objetos lejanos y comprime mucho la perspectiva. Fondo muy desenfocado.'}
-                {hoveredBlock === 'len_6' && 'Captura mucha información del entorno. Útil en espacios cerrados.'}
-                {hoveredBlock === 'len_12' && 'Estilo natural de smartphone, gran profundidad de campo, procesamiento digital visible.'}
-                {!['len_1', 'len_2', 'len_3', 'len_4', 'len_5', 'len_6', 'len_12'].includes(hoveredBlock) && 'Efecto de lente específico para alterar la estética de la imagen.'}
+                {hoveredBlock === 'len_1' && t('Wide field of view, ideal for landscapes or architecture. May distort edges.')}
+                {hoveredBlock === 'len_2' && t('Natural perspective, similar to human vision. Excellent for reportage and street.')}
+                {hoveredBlock === 'len_3' && t('The standard. Very versatile, ideal for half-body portraits and general use.')}
+                {hoveredBlock === 'len_4' && t('Classic for portraits. Compresses the background and favors facial features.')}
+                {hoveredBlock === 'len_5' && t('Brings distant objects closer and compresses perspective significantly. Very blurred background.')}
+                {hoveredBlock === 'len_6' && t('Captures a lot of information from the environment. Useful in closed spaces.')}
+                {hoveredBlock === 'len_12' && t('Natural smartphone style, great depth of field, visible digital processing.')}
+                {!['len_1', 'len_2', 'len_3', 'len_4', 'len_5', 'len_6', 'len_12'].includes(hoveredBlock) && t('Specific lens effect to alter the image aesthetics.')}
               </div>
             </motion.div>
           )}
@@ -2004,7 +2849,7 @@ export default function App() {
             <aside className={`${showLeftSidebar ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 transition-transform duration-300 fixed md:relative left-0 top-0 bottom-0 w-80 border-r border-white/10 flex flex-col bg-[#0F0F0F] shrink-0 z-[150] md:z-40 h-full`}>
               {/* Mobile Close Button */}
               <div className="md:hidden p-4 border-b border-white/10 flex items-center justify-between">
-                <span className="text-sm font-bold text-white">Categorías</span>
+                <span className="text-sm font-bold text-white">{t('Categories')}</span>
                 <button onClick={() => setShowLeftSidebar(false)} className="p-2 text-zinc-400 hover:text-white">
                   <Icons.X size={20} />
                 </button>
@@ -2012,11 +2857,11 @@ export default function App() {
               
               <div className="flex flex-col h-full overflow-hidden">
                 <div className="p-4 pb-2 flex items-center justify-between">
-                  <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Categorías Visuales</h2>
+                  <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">{t('Visual Categories')}</h2>
                   <button 
                     onClick={() => setShowCategoryAndPromptManager(true)}
                     className="p-1.5 text-zinc-400 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-md transition-all"
-                    title="Gestionar Categorías y Prompts"
+                    title={t('Manage Categories and Prompts')}
                   >
                     <Icons.Settings2 size={14} />
                   </button>
@@ -2039,7 +2884,7 @@ export default function App() {
                     >
                       <div className="flex items-center gap-3">
                         <div className={cat.color}>{renderIcon(cat.icon)}</div>
-                        <span>{cat.label}</span>
+                        <span>{t(cat.label)}</span>
                       </div>
                       {selectedBlocks.filter(b => b.categoryId === cat.id).length > 0 && (
                         <span className="bg-emerald-500/20 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded-full">
@@ -2059,10 +2904,10 @@ export default function App() {
                   <h3 className="text-xs font-semibold text-emerald-400 flex items-center gap-2 uppercase tracking-wider">
                     <Icons.MousePointerClick size={14} />
                     {activeCategory.startsWith('custom_cat_') 
-                      ? customCategories.find(c => c.id === activeCategory)?.name || 'Categoría Personalizada'
+                      ? customCategories.find(c => c.id === activeCategory)?.name || t('Custom Category')
                       : ALL_CATEGORIES.find(c => c.id === activeCategory)?.label || 'Selecciona opciones'}
                   </h3>
-                  <p className="text-[10px] text-zinc-500 mt-1">Haz clic en los bloques para añadirlos a tu prompt.</p>
+                  <p className="text-[10px] text-zinc-500 mt-1">{t('Click on the blocks to add them to your prompt.')}</p>
                 </div>
 
                 {activeCategory.startsWith('custom_cat_') ? (
@@ -2070,7 +2915,7 @@ export default function App() {
                     {/* Subcategories */}
                     {customCategories.filter(c => c.parentId === activeCategory).length > 0 && (
                       <div className="flex flex-col gap-2">
-                        <h4 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider px-1">Subcategorías</h4>
+                        <h4 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider px-1">{t('Subcategories')}</h4>
                         <div className="grid grid-cols-2 gap-2">
                           {customCategories.filter(c => c.parentId === activeCategory).map(sub => (
                             <button
@@ -2091,12 +2936,12 @@ export default function App() {
                     {/* Items */}
                     <div className="flex flex-col gap-2">
                       <div className="flex items-center justify-between px-1">
-                        <h4 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">Items</h4>
+                        <h4 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">{t('Items')}</h4>
                         <button 
                           onClick={() => setShowCategoryAndPromptManager(true)}
                           className="text-[10px] text-emerald-400 hover:text-emerald-300 flex items-center gap-1"
                         >
-                          <Icons.Edit3 size={10} /> Gestionar
+                          <Icons.Edit3 size={10} /> {t('Manage')}
                         </button>
                       </div>
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -2115,7 +2960,7 @@ export default function App() {
                               }`}
                             >
                               <div className="flex items-center justify-between w-full">
-                                <span className="truncate">{block.label || block.title}</span>
+                                <span className="truncate">{t(block.label || block.title)}</span>
                                 {block.isNsfw && (
                                   <span className="text-[8px] bg-red-500/20 text-red-400 px-1 rounded">NSFW</span>
                                 )}
@@ -2129,7 +2974,7 @@ export default function App() {
                         {customBlocks.filter(b => b.categoryId === activeCategory).length === 0 && (
                           <div className="col-span-full py-8 flex flex-col items-center justify-center text-zinc-600 border border-dashed border-white/5 rounded-xl">
                             <Icons.PackageOpen size={24} className="mb-2 opacity-20" />
-                            <p className="text-[10px]">No hay items en esta categoría</p>
+                            <p className="text-[10px]">{t('No items in this category')}</p>
                           </div>
                         )}
                       </div>
@@ -2144,7 +2989,7 @@ export default function App() {
                         }}
                         className="mt-2 flex items-center justify-center gap-2 p-2 rounded-lg border border-white/5 text-zinc-500 hover:text-white hover:bg-white/5 text-[10px] transition-all"
                       >
-                        <Icons.ArrowLeft size={12} /> Volver a la categoría superior
+                        <Icons.ArrowLeft size={12} /> {t('Back to top-level category')}
                       </button>
                     )}
                   </div>
@@ -2152,12 +2997,12 @@ export default function App() {
               <>
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-sm font-medium text-white flex items-center gap-2">
-                    {activeCategories.find(c => c.id === activeCategory)?.label}
+                    {t(activeCategories.find(c => c.id === activeCategory)?.label || '')}
                     <button 
                       onClick={() => setShowMoreCategory(activeCategory)}
                       className="text-[10px] text-emerald-400 hover:text-emerald-300 flex items-center gap-0.5"
                     >
-                      (Ver más)
+                      ({t('(View More)')})
                     </button>
                   </h3>
                   <div className="relative group">
@@ -2166,7 +3011,7 @@ export default function App() {
                       type="text"
                       value={blockSearch}
                       onChange={(e) => setBlockSearch(e.target.value)}
-                      placeholder="Filtrar..."
+                      placeholder={t('Filter...')}
                       className="bg-zinc-900 border border-white/5 rounded-full pl-7 pr-3 py-1 text-[10px] text-white focus:outline-none focus:border-emerald-500/50 w-24 transition-all focus:w-32"
                     />
                   </div>
@@ -2193,7 +3038,7 @@ export default function App() {
                           }`}
                         >
                           <Icons.Heart size={12} className="text-red-400 fill-red-400" />
-                          {block.label}
+                          {t(block.label)}
                         </button>
                       </motion.div>
                     );
@@ -2225,7 +3070,7 @@ export default function App() {
                               : 'bg-zinc-900 border-white/5 text-zinc-300 hover:border-white/20 hover:bg-zinc-800'
                           }`}
                         >
-                          {block.label}
+                          {t(block.label)}
                         </button>
                       </motion.div>
                     );
@@ -2252,7 +3097,7 @@ export default function App() {
                 >
                   {news.map(item => (
                     <div key={item.id} className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest">
-                      <span className="text-emerald-400">● NEWS:</span>
+                      <span className="text-emerald-400">{t('NEWS:')}</span>
                       <span className="text-zinc-400">{item.title}</span>
                     </div>
                   ))}
@@ -2271,25 +3116,25 @@ export default function App() {
                 <div className="px-6 py-3 flex items-center justify-between border-b border-white/5 bg-[#0A0A0A]/50 shrink-0">
                   <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 flex items-center gap-2">
                     <Icons.Layers size={14} />
-                    Estructura de la Escena
+                    {t('Scene Structure')}
                   </h2>
                   <div className="flex items-center gap-2">
                     <button 
                       onClick={() => setIsSceneStructureCollapsed(!isSceneStructureCollapsed)}
                       className="p-1.5 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded-lg transition-all flex items-center gap-1.5 text-[10px] font-bold uppercase"
-                      title={isSceneStructureCollapsed ? "Expandir estructura" : "Colapsar estructura"}
+                      title={isSceneStructureCollapsed ? t('Expand structure') : t('Collapse structure')}
                     >
                       {isSceneStructureCollapsed ? <Icons.ChevronDown size={12} /> : <Icons.ChevronUp size={12} />}
-                      <span className="hidden sm:inline">{isSceneStructureCollapsed ? 'Expandir' : 'Colapsar'}</span>
+                      <span className="hidden sm:inline">{isSceneStructureCollapsed ? t('Expand') : t('Collapse')}</span>
                     </button>
                     {!isSceneStructureCollapsed && (
                       <button 
                         onClick={() => setIsSceneStructureExpanded(true)}
                         className="p-1.5 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded-lg transition-all flex items-center gap-1.5 text-[10px] font-bold uppercase"
-                        title="Ampliar estructura"
+                        title={t('Expand structure')}
                       >
                         <Icons.Maximize2 size={12} />
-                        <span className="hidden sm:inline">Gestionar</span>
+                        <span className="hidden sm:inline">{t('Manage')}</span>
                       </button>
                     )}
                   </div>
@@ -2302,7 +3147,7 @@ export default function App() {
                         initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                         className="w-full h-full min-h-[60px] flex items-center justify-center text-zinc-600 text-sm italic border border-dashed border-white/10 rounded-xl"
                       >
-                        Selecciona bloques a la izquierda o pide algo en el chat para comenzar.
+                        {t('Select blocks on the left or ask something in the chat to start.')}
                       </motion.div>
                     ) : (
                       <>
@@ -2319,8 +3164,8 @@ export default function App() {
                               onMouseLeave={() => setHoveredCategory(null)}
                               className={`flex items-center gap-2 bg-zinc-800 border px-3 py-1.5 rounded-full text-sm text-zinc-200 group cursor-default transition-colors ${hoveredCategory === block.categoryId ? 'border-emerald-500/50' : 'border-white/10'}`}
                             >
-                              <span className={`text-xs ${cat?.color || 'text-zinc-500'}`}>{cat?.label || 'Custom'}:</span>
-                              <span>{block.label}</span>
+                              <span className={`text-xs ${cat?.color || 'text-zinc-500'}`}>{cat?.label ? t(cat.label) : t('Custom')}:</span>
+                              <span>{t(block.label)}</span>
                               <button 
                                 onClick={() => toggleBlock(block)}
                                 className="text-zinc-500 hover:text-red-400 transition-colors ml-1 opacity-100 md:opacity-0 md:group-hover:opacity-100"
@@ -2381,7 +3226,7 @@ export default function App() {
                   <div className="flex items-center gap-4">
                     <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 flex items-center gap-2">
                       <Icons.Terminal size={14} />
-                      Prompt Final
+                      {t('Prompt Final')}
                     </h2>
 
                     {/* Magic Enhance Button */}
@@ -2389,7 +3234,7 @@ export default function App() {
                       onClick={handleMagicEnhance}
                       disabled={!compiledPrompt || isCompiling}
                       className="p-1.5 text-zinc-500 hover:text-emerald-400 transition-colors bg-zinc-900/50 rounded-lg border border-white/5 group"
-                      title="Magic Enhance (IA)"
+                      title={t('Magic Enhance (AI)')}
                     >
                       <Icons.Wand2 size={14} className={isCompiling ? 'animate-pulse' : 'group-hover:rotate-12 transition-transform'} />
                     </button>
@@ -2402,8 +3247,8 @@ export default function App() {
                         value={promptCharLimit}
                         onChange={(e) => setPromptCharLimit(parseInt(e.target.value) || 0)}
                         className="bg-transparent text-[10px] text-zinc-300 font-bold w-10 focus:outline-none"
-                        placeholder="Limit"
-                        title="Límite de caracteres"
+                        placeholder={t('Limit')}
+                        title={t('Character limit')}
                       />
                       <div className="h-3 w-px bg-white/10 mx-1"></div>
                       <span className={`text-[10px] font-bold ${promptCharLimit > 0 && compiledPrompt.length > promptCharLimit ? 'text-red-500' : 'text-zinc-500'}`}>
@@ -2436,7 +3281,7 @@ export default function App() {
                             }
                           }}
                           className="ml-1 p-1 text-emerald-400 hover:bg-emerald-500/10 rounded transition-colors"
-                          title="Optimizar para el límite"
+                          title={t('Optimize for limit')}
                         >
                           <Icons.Zap size={10} />
                         </button>
@@ -2448,20 +3293,20 @@ export default function App() {
                         disabled={selectedBlocks.length === 0 && customInstructions.length === 0}
                         className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 disabled:bg-zinc-800 disabled:text-zinc-600 text-black text-xs font-bold rounded-lg transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-1"
                       >
-                        <Icons.Play size={12} /> GENERAR AHORA
+                        <Icons.Play size={12} /> {t('GENERATE NOW')}
                       </button>
                     )}
                   </div>
                   <div className="flex items-center gap-4">
                     {!isBannedWordsLocked && (
                       <span className="text-xs text-red-400 font-medium flex items-center gap-1 animate-pulse">
-                        <Icons.AlertTriangle size={12} /> Editing banned words
+                        <Icons.AlertTriangle size={12} /> {t('Editing banned words')}
                       </span>
                     )}
                     {isCompiling && (
                       <div className="flex items-center gap-2 text-xs text-emerald-400">
                         <Icons.Loader2 size={12} className="animate-spin" />
-                        Compiling...
+                        {t('Compiling...')}
                       </div>
                     )}
                     
@@ -2477,11 +3322,11 @@ export default function App() {
                           ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/20' 
                           : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'
                       }`}
-                      title={isManualGeneration ? 'Cambiar a Generación Automática' : 'Cambiar a Generación Manual'}
+                      title={isManualGeneration ? t('Switch to Auto Generation') : t('Switch to Manual Generation')}
                     >
                       <div className={`w-1.5 h-1.5 rounded-full ${isManualGeneration ? 'bg-amber-400' : 'bg-emerald-400'}`} />
                       <span className="text-[10px] font-bold uppercase tracking-wider">
-                        {isManualGeneration ? 'Manual' : 'Auto'}
+                        {isManualGeneration ? t('Manual') : t('Auto')}
                       </span>
                     </button>
 
@@ -2495,7 +3340,7 @@ export default function App() {
                           localStorage.setItem('scenecraft_target_model', e.target.value);
                         }}
                         className="bg-transparent text-[10px] text-zinc-300 font-bold focus:outline-none uppercase tracking-wider"
-                        title="IA Target (Optimización)"
+                        title={t('AI Target (Optimization)')}
                       >
                         <option value="scenecraft">SceneCraft Soul</option>
                         <option value="midjourney">Midjourney (V6+)</option>
@@ -2510,17 +3355,17 @@ export default function App() {
                         <option value="leonardo">Leonardo AI</option>
                         <option value="krea">Krea.ai</option>
                         <option value="starryai">StarryAI</option>
-                        <option value="code">Generación de Código</option>
+                        <option value="code">{t('Code Generation')}</option>
                       </select>
                     </div>
 
                     <button 
                       onClick={() => setShowSessionHistory(true)}
                       className="p-1.5 text-zinc-500 hover:text-emerald-400 transition-colors flex items-center gap-1.5 bg-zinc-900/50 rounded-lg border border-white/5"
-                      title="Session History (Temporary)"
+                      title={t('Session History (Temporary)')}
                     >
                       <Icons.History size={14} />
-                      <span className="text-[10px] font-bold uppercase tracking-wider">Session History</span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider">{t('Session History')}</span>
                     </button>
                   </div>
                 </div>
@@ -2557,7 +3402,7 @@ export default function App() {
                           </span>
                         );
                       }) : (
-                        <span className="text-zinc-600 italic">El prompt generado aparecerá aquí...</span>
+                        <span className="text-zinc-600 italic">{t('The generated prompt will appear here...')}</span>
                       )}
                     </div>
                   )}
@@ -2566,14 +3411,14 @@ export default function App() {
                     <button 
                       onClick={() => setIsEditingPrompt(!isEditingPrompt)}
                       className="p-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg transition-colors border border-white/5"
-                      title={isEditingPrompt ? "Ver resaltado" : "Editar texto plano"}
+                      title={isEditingPrompt ? t('View highlighted') : t('Edit plain text')}
                     >
                       {isEditingPrompt ? <Icons.Eye size={16} /> : <Icons.Edit3 size={16} />}
                     </button>
                     <button 
                       onClick={() => handleCopyPrompt(compiledPrompt)}
                       className="p-2 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 rounded-lg transition-colors border border-emerald-500/20"
-                      title="Copiar prompt"
+                      title={t('Copy prompt')}
                     >
                       <Icons.Copy size={16} />
                     </button>
@@ -2588,6 +3433,7 @@ export default function App() {
                     <Icons.MessageSquare size={18} />
                   </div>
                   <textarea
+                    ref={chatTextareaRef}
                     value={chatInput}
                     onChange={(e) => {
                       setChatInput(e.target.value);
@@ -2600,7 +3446,7 @@ export default function App() {
                         handleChatSubmit(e as any);
                       }
                     }}
-                    placeholder="Ej: Hazlo más casual, cambia a luz de neón, añade un espejo..."
+                    placeholder={t('Ex: Make it more casual, change to neon light, add a mirror...')}
                     className="w-full bg-zinc-900 border border-white/10 rounded-xl py-4 pl-12 pr-16 text-zinc-200 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all placeholder:text-zinc-600 resize-none custom-scrollbar"
                     disabled={isChatting || !isBannedWordsLocked}
                     rows={1}
@@ -2622,8 +3468,8 @@ export default function App() {
             <div className="flex-1 p-6 flex flex-col items-center justify-center overflow-y-auto custom-scrollbar">
               <div className="w-full max-w-2xl flex flex-col gap-6">
                 <div className="text-center">
-                  <h2 className="text-2xl font-semibold text-white mb-2">Recreación de Imagen</h2>
-                  <p className="text-zinc-400 text-sm">Sube una imagen de referencia para extraer un prompt detallado.</p>
+                  <h2 className="text-2xl font-semibold text-white mb-2">{t('Image Recreation')}</h2>
+                  <p className="text-zinc-400 text-sm">{t('Upload a reference image to extract a detailed prompt.')}</p>
                 </div>
 
                 <div 
@@ -2640,7 +3486,7 @@ export default function App() {
                           }}
                           className="px-4 py-2 rounded-lg text-sm font-medium text-zinc-300 bg-zinc-800 hover:bg-zinc-700 transition-colors"
                         >
-                          Cambiar Imagen
+                          {t('Change Image')}
                         </button>
                         <button 
                           onClick={analyzeImage}
@@ -2648,11 +3494,11 @@ export default function App() {
                           className="px-4 py-2 rounded-lg text-sm font-medium bg-emerald-500 text-black hover:bg-emerald-400 disabled:opacity-50 disabled:hover:bg-emerald-500 transition-colors flex items-center gap-2"
                         >
                           {isAnalyzingImage ? (
-                            <><Icons.Loader2 size={16} className="animate-spin" /> Analizando...</>
+                            <><Icons.Loader2 size={16} className="animate-spin" /> {t('Analyzing...')}</>
                           ) : extractedPrompt ? (
-                            <><Icons.Check size={16} /> Analizado</>
+                            <><Icons.Check size={16} /> {t('Analyzed')}</>
                           ) : (
-                            <><Icons.Sparkles size={16} /> Extraer Prompt</>
+                            <><Icons.Sparkles size={16} /> {t('Extract Prompt')}</>
                           )}
                         </button>
                       </div>
@@ -2660,7 +3506,7 @@ export default function App() {
                   ) : (
                     <>
                       <Icons.ImagePlus size={48} className="text-zinc-600 mb-4" />
-                      <p className="text-zinc-400 text-sm mb-4 text-center">Arrastra y suelta una imagen aquí, o haz clic para seleccionar.</p>
+                      <p className="text-zinc-400 text-sm mb-4 text-center">{t('Drag and drop an image here, or click to select.')}</p>
                       <input 
                         type="file" 
                         accept="image/*" 
@@ -2672,19 +3518,19 @@ export default function App() {
                         onClick={() => fileInputRef.current?.click()}
                         className="px-4 py-2 rounded-lg text-sm font-medium bg-zinc-800 text-white hover:bg-zinc-700 transition-colors mb-6"
                       >
-                        Seleccionar Archivo
+                        {t('Select File')}
                       </button>
                       
                       <div className="w-full max-w-md flex items-center gap-2">
                         <div className="h-px bg-white/10 flex-1"></div>
-                        <span className="text-xs text-zinc-500 uppercase font-medium">O usa un enlace</span>
+                        <span className="text-xs text-zinc-500 uppercase font-medium">{t('Or use a link')}</span>
                         <div className="h-px bg-white/10 flex-1"></div>
                       </div>
                       
                       <div className="w-full max-w-md mt-6 flex gap-2">
                         <input 
                           type="url" 
-                          placeholder="Pega la URL de la imagen aquí..." 
+                          placeholder={t('Paste image URL here...')} 
                           value={imageUrlInput}
                           onChange={(e) => setImageUrlInput(e.target.value)}
                           className="flex-1 bg-zinc-950 border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-emerald-500/50"
@@ -2699,7 +3545,7 @@ export default function App() {
                           disabled={!imageUrlInput}
                           className="px-4 py-2 rounded-lg text-sm font-medium bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 disabled:opacity-50 transition-colors"
                         >
-                          Cargar URL
+                          {t('Load URL')}
                         </button>
                       </div>
                     </>
@@ -2712,7 +3558,7 @@ export default function App() {
                     className="bg-zinc-900 border border-white/10 rounded-2xl p-6 flex flex-col gap-4"
                   >
                     <h3 className="text-sm font-semibold text-emerald-400 flex items-center gap-2">
-                      <Icons.FileText size={16} /> Prompt Extraído
+                      <Icons.FileText size={16} /> {t('Extracted Prompt')}
                     </h3>
                     <p className="text-zinc-300 text-sm leading-relaxed font-mono bg-black/30 p-4 rounded-xl border border-white/5">
                       {extractedPrompt}
@@ -2723,14 +3569,14 @@ export default function App() {
                           onClick={() => setShowCleanModal(true)}
                           className="px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-800 text-zinc-300 hover:bg-zinc-700 border border-white/10 transition-colors flex items-center gap-1.5"
                         >
-                          <Icons.Eraser size={14} /> Limpiar Prompt
+                          <Icons.Eraser size={14} /> {t('Clean Prompt')}
                         </button>
                         {originalRecreationPrompt && extractedPrompt !== originalRecreationPrompt && (
                           <button 
                             onClick={() => setExtractedPrompt(originalRecreationPrompt)}
                             className="px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-800 text-zinc-300 hover:bg-zinc-700 border border-white/10 transition-colors flex items-center gap-1.5"
                           >
-                            <Icons.Undo size={14} /> Revertir
+                            <Icons.Undo size={14} /> {t('Revert')}
                           </button>
                         )}
                       </div>
@@ -2739,13 +3585,13 @@ export default function App() {
                           onClick={() => setShowSaveStyleModal(true)}
                           className="px-4 py-2 rounded-lg text-sm font-medium bg-zinc-800 text-zinc-300 hover:bg-zinc-700 border border-white/10 transition-colors flex items-center gap-2"
                         >
-                          <Icons.Bookmark size={16} /> Guardar Estilo
+                          <Icons.Bookmark size={16} /> {t('Save Style')}
                         </button>
                         <button 
                           onClick={() => setShowComparisonModal(true)}
                           className="px-4 py-2 rounded-lg text-sm font-medium bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/20 transition-colors flex items-center gap-2"
                         >
-                          <Icons.GitMerge size={16} /> Integrar a la Escena
+                          <Icons.GitMerge size={16} /> {t('Integrate into Scene')}
                         </button>
                       </div>
                     </div>
@@ -2760,42 +3606,42 @@ export default function App() {
               <div className="w-full max-w-4xl mx-auto flex flex-col gap-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-2xl font-semibold text-white mb-2">Variaciones del Prompt</h2>
-                    <p className="text-zinc-400 text-sm">Genera variaciones de tu prompt actual cambiando aspectos específicos.</p>
+                    <h2 className="text-2xl font-semibold text-white mb-2">{t('Prompt Variations')}</h2>
+                    <p className="text-zinc-400 text-sm">{t('Generate variations of your current prompt by changing specific aspects.')}</p>
                   </div>
                   <button 
                     onClick={() => setWorkMode('prompting')}
                     className="px-4 py-2 rounded-lg text-sm font-medium bg-zinc-800 text-white hover:bg-zinc-700 transition-colors flex items-center gap-2"
                   >
-                    <Icons.ArrowLeft size={16} /> Volver a Prompting
+                    <Icons.ArrowLeft size={16} /> {t('Back to Prompting')}
                   </button>
                 </div>
 
                 <div className="bg-zinc-900 border border-white/10 rounded-2xl p-6 flex flex-col gap-4">
                   <h3 className="text-sm font-semibold text-zinc-400">Prompt Base</h3>
                   <div className="bg-black/30 border border-white/5 rounded-xl p-4 text-sm text-zinc-300 min-h-[100px] font-mono">
-                    {compiledPrompt || <span className="text-zinc-600 italic">No hay prompt actual para variar. Ve a la pestaña de Prompting y crea uno.</span>}
+                    {compiledPrompt || <span className="text-zinc-600 italic">{t('No current prompt to vary. Go to the Prompting tab and create one.')}</span>}
                   </div>
                 </div>
 
                 {compiledPrompt && (
                   <div className="flex overflow-x-auto gap-4 pb-4 custom-scrollbar snap-x">
                     {[
-                      { title: "Cambiar Pose", icon: Icons.User, basePrompt: "Mantén todo igual pero cambia la pose del sujeto a:" },
-                      { title: "Cambiar Iluminación", icon: Icons.Sun, basePrompt: "Mantén todo igual pero cambia la iluminación a:" },
-                      { title: "Cambiar Entorno", icon: Icons.Map, basePrompt: "Mantén el sujeto igual pero colócalo en:" },
-                      { title: "Cambiar Estilo", icon: Icons.Palette, basePrompt: "Mantén el contenido igual pero cambia el estilo artístico a:" },
-                      { title: "Cambiar Ropa", icon: Icons.Shirt, basePrompt: "Mantén todo igual pero cambia la ropa del sujeto a:" },
-                      { title: "Cambiar Expresión", icon: Icons.Smile, basePrompt: "Mantén todo igual pero cambia la expresión facial a:" },
-                      { title: "Cambiar Clima", icon: Icons.CloudRain, basePrompt: "Mantén todo igual pero cambia el clima a:" },
-                      { title: "Cambiar Hora del Día", icon: Icons.Clock, basePrompt: "Mantén todo igual pero cambia la hora del día a:" },
-                      { title: "Cambiar Ángulo de Cámara", icon: Icons.Camera, basePrompt: "Mantén todo igual pero cambia el ángulo de la cámara a:" },
-                      { title: "Cambiar Paleta de Colores", icon: Icons.Droplet, basePrompt: "Mantén todo igual pero cambia la paleta de colores a:" },
-                      { title: "Añadir Elemento", icon: Icons.PlusCircle, basePrompt: "Mantén todo igual pero añade el siguiente elemento:" },
-                      { title: "Quitar Elemento", icon: Icons.MinusCircle, basePrompt: "Mantén todo igual pero quita el siguiente elemento:" },
-                      { title: "Cambiar Edad", icon: Icons.UserPlus, basePrompt: "Mantén todo igual pero cambia la edad del sujeto a:" },
-                      { title: "Cambiar Época", icon: Icons.Hourglass, basePrompt: "Mantén todo igual pero sitúa la escena en la época:" },
-                      { title: "Cambiar Emoción General", icon: Icons.Heart, basePrompt: "Mantén todo igual pero cambia la emoción general de la imagen a:" },
+                      { title: t("Change Pose"), icon: Icons.User, basePrompt: t("Change Pose") },
+                      { title: t("Change Lighting"), icon: Icons.Sun, basePrompt: t("Change Lighting") },
+                      { title: t("Change Environment"), icon: Icons.Map, basePrompt: t("Change Environment") },
+                      { title: t("Change Style"), icon: Icons.Palette, basePrompt: t("Change Style") },
+                      { title: t("Change Clothing"), icon: Icons.Shirt, basePrompt: t("Change Clothing") },
+                      { title: t("Change Expression"), icon: Icons.Smile, basePrompt: t("Change Expression") },
+                      { title: t("Change Weather"), icon: Icons.CloudRain, basePrompt: t("Change Weather") },
+                      { title: t("Change Time of Day"), icon: Icons.Clock, basePrompt: t("Change Time of Day") },
+                      { title: t("Change Camera Angle"), icon: Icons.Camera, basePrompt: t("Change Camera Angle") },
+                      { title: t("Change Color Palette"), icon: Icons.Droplet, basePrompt: t("Change Color Palette") },
+                      { title: t("Add Element"), icon: Icons.PlusCircle, basePrompt: t("Add Element") },
+                      { title: t("Remove Element"), icon: Icons.MinusCircle, basePrompt: t("Remove Element") },
+                      { title: t("Change Age"), icon: Icons.UserPlus, basePrompt: t("Change Age") },
+                      { title: t("Change Era"), icon: Icons.Hourglass, basePrompt: t("Change Era") },
+                      { title: t("Change General Emotion"), icon: Icons.Heart, basePrompt: t("Change General Emotion") },
                     ].map((variation, idx) => (
                       <div
                         key={idx}
@@ -2820,14 +3666,14 @@ export default function App() {
                           <input 
                             name="customInput"
                             type="text" 
-                            placeholder="Ej: algo dramático..." 
+                            placeholder={t("Ex: something dramatic...")} 
                             className="w-full bg-black/30 border border-white/10 rounded-lg p-2 text-xs text-white focus:outline-none focus:border-emerald-500/50"
                           />
                           <button 
                             type="submit"
                             className="w-full py-2 rounded-lg text-xs font-medium bg-zinc-800 text-white hover:bg-zinc-700 transition-colors"
                           >
-                            Aplicar
+                            {t('Apply')}
                           </button>
                         </form>
                       </div>
@@ -2843,34 +3689,34 @@ export default function App() {
               <div className="w-full max-w-4xl mx-auto flex flex-col gap-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-2xl font-semibold text-white mb-2">Flujo de Prompts (Storytelling)</h2>
-                    <p className="text-zinc-400 text-sm">Crea una historia o secuencia de eventos basada en tu prompt actual.</p>
+                    <h2 className="text-2xl font-semibold text-white mb-2">{t('Prompt Flow (Storytelling)')}</h2>
+                    <p className="text-zinc-400 text-sm">{t('Create a story or sequence of events based on your current prompt.')}</p>
                   </div>
                 </div>
 
                 <div className="bg-zinc-900 border border-white/10 rounded-2xl p-6 flex flex-col gap-4">
                   <h3 className="text-sm font-semibold text-zinc-400">Prompt Final (Bloqueado)</h3>
                   <div className="bg-black/30 border border-white/5 rounded-xl p-4 text-sm text-zinc-300 min-h-[100px] font-mono opacity-70">
-                    {compiledPrompt || <span className="text-zinc-600 italic">No hay prompt actual. Ve a la pestaña de Prompting y crea uno.</span>}
+                    {compiledPrompt || <span className="text-zinc-600 italic">{t('No current prompt. Go to the Prompting tab and create one.')}</span>}
                   </div>
                 </div>
 
                 <div className="bg-zinc-900 border border-white/10 rounded-2xl p-6 flex flex-col gap-4">
-                  <h3 className="text-sm font-semibold text-white">Configuración de la Historia</h3>
+                  <h3 className="text-sm font-semibold text-white">{t('Story Configuration')}</h3>
                   
                   <div className="flex flex-col gap-2">
-                    <label className="text-xs text-zinc-400">Describe la historia o el contexto general:</label>
+                    <label className="text-xs text-zinc-400">{t('Describe the story or general context:')}</label>
                     <textarea 
                       value={flowStory}
                       onChange={(e) => setFlowStory(e.target.value)}
-                      placeholder="Ej: Un día pesado en el trabajo, desde que se levanta hasta que regresa a casa exhausto..."
+                      placeholder={t('Ex: A heavy day at work, from waking up until returning home exhausted...')}
                       className="w-full bg-black/30 border border-white/10 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-emerald-500/50 min-h-[100px] resize-none"
                     />
                   </div>
 
                   <div className="flex items-center gap-6">
                     <div className="flex flex-col gap-2 flex-1">
-                      <label className="text-xs text-zinc-400">Número de prompts (Max 20):</label>
+                      <label className="text-xs text-zinc-400">{t('Number of prompts (Max 20):')}</label>
                       <input 
                         type="number" 
                         min="2" max="20"
@@ -2880,15 +3726,15 @@ export default function App() {
                       />
                     </div>
                     <div className="flex flex-col gap-2 flex-1">
-                      <label className="text-xs text-zinc-400">Posición del Prompt Final:</label>
+                      <label className="text-xs text-zinc-400">{t('Final Prompt Position:')}</label>
                       <select 
                         value={flowFinalPromptPosition}
                         onChange={(e) => setFlowFinalPromptPosition(e.target.value)}
                         className="w-full bg-black/30 border border-white/10 rounded-lg p-2 text-sm text-white focus:outline-none focus:border-emerald-500/50"
                       >
-                        <option value="-">Automático (Según coherencia)</option>
+                        <option value="-">{t('Automatic (Based on coherence)')}</option>
                         {Array.from({length: flowCount}).map((_, i) => (
-                          <option key={i} value={i + 1}>Posición {i + 1}</option>
+                          <option key={i} value={i + 1}>{t('Position')} {i + 1}</option>
                         ))}
                       </select>
                     </div>
@@ -2949,7 +3795,7 @@ export default function App() {
                     className="mt-2 w-full py-3 rounded-xl font-medium bg-emerald-500 text-black hover:bg-emerald-400 transition-colors disabled:opacity-50 disabled:hover:bg-emerald-500 flex items-center justify-center gap-2"
                   >
                     {isGeneratingFlow ? <Icons.Loader2 size={18} className="animate-spin" /> : <Icons.Wand2 size={18} />}
-                    {isGeneratingFlow ? 'Generando Flujo...' : 'Generar Historia'}
+                    {isGeneratingFlow ? t('Generating Flow...') : t('Generate Story')}
                   </button>
                 </div>
 
@@ -2983,7 +3829,7 @@ export default function App() {
                             <button 
                               onClick={() => handleCopyPrompt(item.prompt)}
                               className="text-zinc-500 hover:text-emerald-400 transition-colors" 
-                              title="Copiar prompt"
+                              title={t('Copy prompt')}
                             >
                               <Icons.Copy size={16} />
                             </button>
@@ -3006,8 +3852,8 @@ export default function App() {
               <div className="w-full max-w-5xl mx-auto flex flex-col gap-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-2xl font-semibold text-white mb-2">Comunidad e Inspiración</h2>
-                    <p className="text-zinc-400 text-sm">Explora prompts creados por otros usuarios, inspírate y comparte tus creaciones.</p>
+                    <h2 className="text-2xl font-semibold text-white mb-2">{t('Community & Inspiration')}</h2>
+                    <p className="text-zinc-400 text-sm">{t('Explore prompts created by other users, get inspired and share your creations.')}</p>
                   </div>
                   <button 
                     onClick={() => setShowShareModal(true)}
@@ -3024,7 +3870,7 @@ export default function App() {
                       type="text"
                       value={communitySearch}
                       onChange={(e) => setCommunitySearch(e.target.value)}
-                      placeholder="Buscar por título o prompt..."
+                      placeholder={t('Search by title or prompt...')}
                       className="w-full bg-zinc-900 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500/50 transition-all"
                     />
                   </div>
@@ -3035,8 +3881,8 @@ export default function App() {
                       onChange={(e) => setCommunitySort(e.target.value as any)}
                       className="bg-zinc-900 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500/50 transition-all cursor-pointer flex-1 md:flex-none"
                     >
-                      <option value="newest">Más recientes</option>
-                      <option value="popular">Más populares</option>
+                      <option value="newest">{t('Most recent')}</option>
+                      <option value="popular">{t('Most popular')}</option>
                     </select>
                   </div>
                 </div>
@@ -3092,7 +3938,7 @@ export default function App() {
                               setWorkMode('prompting');
                             }}
                             className="text-zinc-500 hover:text-emerald-400 transition-colors" 
-                            title="Llevar a Prompting"
+                            title={t('Take to Prompting')}
                           >
                             <Icons.ArrowRight size={16} />
                           </button>
@@ -3109,8 +3955,8 @@ export default function App() {
               <div className="w-full max-w-5xl mx-auto flex flex-col gap-8">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-2xl font-semibold text-white mb-2">Alquimia de Prompts</h2>
-                    <p className="text-zinc-400 text-sm">Combina hasta 6 imágenes para generar prompts únicos y coherentes.</p>
+                    <h2 className="text-2xl font-semibold text-white mb-2">{t('Prompt Alchemy')}</h2>
+                    <p className="text-zinc-400 text-sm">{t('Combine up to 6 images to generate unique and coherent prompts.')}</p>
                   </div>
                   <div className="flex gap-2">
                     <button 
@@ -3191,7 +4037,7 @@ export default function App() {
                   <div className="flex flex-col gap-4">
                     <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                       <Icons.Sparkles size={20} className="text-emerald-400" />
-                      Resultados de la Transmutación
+                      {t('Transmutation Results')}
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {alquimiaPrompts.map((p, i) => (
@@ -3203,7 +4049,7 @@ export default function App() {
                           className="bg-zinc-900 border border-white/5 rounded-2xl p-5 flex flex-col gap-3 group relative"
                         >
                           <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">Variación {i + 1}</span>
+                            <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">{t('Variation')} {i + 1}</span>
                             <button 
                               onClick={() => handleCopyPrompt(p)}
                               className="p-2 text-zinc-500 hover:text-emerald-400 transition-colors"
@@ -3224,7 +4070,7 @@ export default function App() {
                   <div className="mt-8">
                     <h3 className="text-lg font-semibold text-zinc-500 mb-4 flex items-center gap-2">
                       <Icons.History size={20} />
-                      Historial de Alquimia
+                      {t('Alchemy History')}
                     </h3>
                     <div className="space-y-4">
                       {alquimiaHistory.map((h, i) => (
@@ -3288,7 +4134,7 @@ export default function App() {
                     {coworkingTopics.length === 0 && (
                       <div className="flex flex-col items-center justify-center h-full p-8 text-center">
                         <Icons.MessageSquare size={48} className="text-zinc-700 mb-4" />
-                        <p className="text-zinc-500 text-sm">No hay temas de coworking aún.</p>
+                        <p className="text-zinc-500 text-sm">{t('No coworking topics yet.')}</p>
                         <button 
                           onClick={() => setShowCreateTopicModal(true)}
                           className="mt-4 px-4 py-2 bg-orange-500 text-black rounded-lg text-sm font-bold hover:bg-orange-400 transition-colors"
@@ -3353,7 +4199,7 @@ export default function App() {
                             type="text"
                             value={coworkingInput}
                             onChange={(e) => setCoworkingInput(e.target.value)}
-                            placeholder="Escribe un mensaje..."
+                            placeholder={t('Type a message...')}
                             className="flex-1 bg-zinc-950 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-orange-500/50"
                           />
                           <button 
@@ -3385,7 +4231,7 @@ export default function App() {
                 <div>
                   <h2 className="text-2xl font-bold text-white flex items-center gap-3">
                     <Icons.ShieldCheck size={28} className="text-emerald-400" />
-                    Panel de Administración
+                    {t('Admin Panel')}
                   </h2>
                   <p className="text-zinc-500 text-sm mt-1">Gestiona usuarios, suscripciones y contenido de la plataforma.</p>
                 </div>
@@ -3483,7 +4329,7 @@ export default function App() {
                     >
                       <h3 className="text-lg font-semibold text-white mb-6 flex items-center gap-2">
                         <Icons.UserCog size={20} className="text-emerald-400" />
-                        Gestión de Usuarios
+                        {t('User Management')}
                       </h3>
                       <div className="overflow-x-auto">
                         <table className="w-full text-left text-sm">
@@ -3522,7 +4368,7 @@ export default function App() {
                                     <div className="w-8 h-8 rounded-full bg-zinc-800" />
                                     <div>
                                       <div className="font-medium text-white">usuario_{i}@ejemplo.com</div>
-                                      <div className="text-[10px] text-zinc-500 uppercase font-bold">Usuario Estándar</div>
+                                      <div className="text-[10px] text-zinc-500 uppercase font-bold">{t('Standard User')}</div>
                                     </div>
                                   </div>
                                 </td>
@@ -3532,10 +4378,10 @@ export default function App() {
                                 <td className="py-4 text-zinc-400">0/2</td>
                                 <td className="py-4 text-right">
                                   <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button className="p-1.5 text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-colors" title="Regalar Suscripción">
+                                    <button className="p-1.5 text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-colors" title={t('Gift Subscription')}>
                                       <Icons.Gift size={16} />
                                     </button>
-                                    <button className="p-1.5 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors" title="Bloquear Usuario">
+                                    <button className="p-1.5 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors" title={t('Block User')}>
                                       <Icons.UserX size={16} />
                                     </button>
                                   </div>
@@ -3557,42 +4403,42 @@ export default function App() {
                       <div className="bg-zinc-900/50 border border-white/5 rounded-2xl p-6">
                         <h4 className="text-white font-bold mb-4 flex items-center gap-2">
                           <Icons.CreditCard size={18} className="text-emerald-400" />
-                          Tier Free
+                          {t('Free Tier')}
                         </h4>
-                        <div className="text-3xl font-bold text-white mb-2">$0 <span className="text-sm text-zinc-500 font-normal">/mes</span></div>
+                        <div className="text-3xl font-bold text-white mb-2">$0 <span className="text-sm text-zinc-500 font-normal">/{t('month')}</span></div>
                         <ul className="text-sm text-zinc-400 space-y-2 mb-6">
-                          <li className="flex items-center gap-2"><Icons.Check size={14} className="text-emerald-400" /> 10 prompts diarios</li>
-                          <li className="flex items-center gap-2"><Icons.Check size={14} className="text-emerald-400" /> Acceso básico</li>
-                          <li className="flex items-center gap-2"><Icons.X size={14} className="text-red-400" /> Sin Magic Enhance</li>
+                          <li className="flex items-center gap-2"><Icons.Check size={14} className="text-emerald-400" /> 10 {t('daily prompts')}</li>
+                          <li className="flex items-center gap-2"><Icons.Check size={14} className="text-emerald-400" /> {t('Basic access')}</li>
+                          <li className="flex items-center gap-2"><Icons.X size={14} className="text-red-400" /> {t('No Magic Enhance')}</li>
                         </ul>
-                        <button className="w-full py-2 bg-zinc-800 text-white rounded-xl text-xs font-bold hover:bg-zinc-700 transition-colors">Configurar</button>
+                        <button className="w-full py-2 bg-zinc-800 text-white rounded-xl text-xs font-bold hover:bg-zinc-700 transition-colors">{t('Configure')}</button>
                       </div>
                       <div className="bg-zinc-900/50 border border-emerald-500/30 rounded-2xl p-6 relative overflow-hidden">
-                        <div className="absolute top-0 right-0 bg-emerald-500 text-black text-[10px] font-bold px-3 py-1 rounded-bl-xl">POPULAR</div>
+                        <div className="absolute top-0 right-0 bg-emerald-500 text-black text-[10px] font-bold px-3 py-1 rounded-bl-xl">{t('POPULAR')}</div>
                         <h4 className="text-white font-bold mb-4 flex items-center gap-2">
                           <Icons.Zap size={18} className="text-emerald-400" />
-                          Tier Pro
+                          {t('Pro Tier')}
                         </h4>
-                        <div className="text-3xl font-bold text-white mb-2">$9.99 <span className="text-sm text-zinc-500 font-normal">/mes</span></div>
+                        <div className="text-3xl font-bold text-white mb-2">$9.99 <span className="text-sm text-zinc-500 font-normal">/{t('month')}</span></div>
                         <ul className="text-sm text-zinc-400 space-y-2 mb-6">
-                          <li className="flex items-center gap-2"><Icons.Check size={14} className="text-emerald-400" /> 100 prompts diarios</li>
-                          <li className="flex items-center gap-2"><Icons.Check size={14} className="text-emerald-400" /> Magic Enhance</li>
-                          <li className="flex items-center gap-2"><Icons.Check size={14} className="text-emerald-400" /> Sin anuncios</li>
+                          <li className="flex items-center gap-2"><Icons.Check size={14} className="text-emerald-400" /> 100 {t('daily prompts')}</li>
+                          <li className="flex items-center gap-2"><Icons.Check size={14} className="text-emerald-400" /> {t('Magic Enhance')}</li>
+                          <li className="flex items-center gap-2"><Icons.Check size={14} className="text-emerald-400" /> {t('Sin anuncios')}</li>
                         </ul>
-                        <button className="w-full py-2 bg-emerald-500 text-black rounded-xl text-xs font-bold hover:bg-emerald-400 transition-colors">Configurar</button>
+                        <button className="w-full py-2 bg-emerald-500 text-black rounded-xl text-xs font-bold hover:bg-emerald-400 transition-colors">{t('Configure')}</button>
                       </div>
                       <div className="bg-zinc-900/50 border border-purple-500/30 rounded-2xl p-6">
                         <h4 className="text-white font-bold mb-4 flex items-center gap-2">
                           <Icons.Crown size={18} className="text-purple-400" />
-                          Tier Elite
+                          {t('Elite Tier')}
                         </h4>
-                        <div className="text-3xl font-bold text-white mb-2">$24.99 <span className="text-sm text-zinc-500 font-normal">/mes</span></div>
+                        <div className="text-3xl font-bold text-white mb-2">$24.99 <span className="text-sm text-zinc-500 font-normal">/{t('month')}</span></div>
                         <ul className="text-sm text-zinc-400 space-y-2 mb-6">
-                          <li className="flex items-center gap-2"><Icons.Check size={14} className="text-emerald-400" /> Prompts ilimitados</li>
-                          <li className="flex items-center gap-2"><Icons.Check size={14} className="text-emerald-400" /> Soporte prioritario</li>
-                          <li className="flex items-center gap-2"><Icons.Check size={14} className="text-emerald-400" /> Acceso anticipado</li>
+                          <li className="flex items-center gap-2"><Icons.Check size={14} className="text-emerald-400" /> {t('Unlimited prompts')}</li>
+                          <li className="flex items-center gap-2"><Icons.Check size={14} className="text-emerald-400" /> {t('Priority support')}</li>
+                          <li className="flex items-center gap-2"><Icons.Check size={14} className="text-emerald-400" /> {t('Early access')}</li>
                         </ul>
-                        <button className="w-full py-2 bg-purple-500 text-white rounded-xl text-xs font-bold hover:bg-purple-400 transition-colors">Configurar</button>
+                        <button className="w-full py-2 bg-purple-500 text-white rounded-xl text-xs font-bold hover:bg-purple-400 transition-colors">{t('Configure')}</button>
                       </div>
                     </motion.div>
                   )}
@@ -3605,7 +4451,7 @@ export default function App() {
                     >
                       <h3 className="text-lg font-semibold text-white mb-6 flex items-center gap-2">
                         <Icons.Image size={20} className="text-emerald-400" />
-                        Moderación de Contenido
+                        {t('Content Moderation')}
                       </h3>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
@@ -3645,7 +4491,7 @@ export default function App() {
                       <div className="p-4 bg-zinc-950 border border-white/10 rounded-xl flex items-center justify-between">
                         <div>
                           <div className="text-sm font-bold text-white">Nuevas Funciones (Spoilers)</div>
-                          <div className="text-xs text-zinc-500">Muestra pestañas en construcción</div>
+                          <div className="text-xs text-zinc-500">{t('Shows tabs under construction')}</div>
                         </div>
                         <button className="w-10 h-5 bg-emerald-500 rounded-full relative">
                           <div className="absolute top-1 right-1 w-3 h-3 bg-white rounded-full" />
@@ -3661,7 +4507,7 @@ export default function App() {
                     </h3>
                     <div className="space-y-3">
                       <div className="flex justify-between text-xs">
-                        <span className="text-zinc-500">Versión App</span>
+                        <span className="text-zinc-500">{t('App Version')}</span>
                         <span className="text-zinc-300">v2.4.0-beta</span>
                       </div>
                       <div className="flex justify-between text-xs">
@@ -3744,7 +4590,7 @@ export default function App() {
                   type="text"
                   value={bannedWordInput}
                   onChange={e => setBannedWordInput(e.target.value)}
-                  placeholder="e.g. baby, child..."
+                  placeholder={t('e.g. baby, child...')}
                   className="flex-1 bg-zinc-900 border border-white/10 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-red-400/50"
                 />
                 <button type="submit" className="bg-zinc-800 text-zinc-300 px-2 rounded hover:bg-zinc-700">
@@ -3829,8 +4675,8 @@ export default function App() {
                               className="w-full text-left p-2 rounded-lg bg-zinc-900 border border-white/5 hover:border-emerald-500/30 hover:bg-zinc-800 transition-all group flex items-start justify-between"
                             >
                               <div>
-                                <div className="text-[10px] text-emerald-400/80 mb-0.5">{ALL_CATEGORIES.find(c => c.id === block.categoryId)?.label}</div>
-                                <div className="text-xs text-zinc-200">{block.label}</div>
+                                <div className="text-[10px] text-emerald-400/80 mb-0.5">{t(ALL_CATEGORIES.find(c => c.id === block.categoryId)?.label || '')}</div>
+                                <div className="text-xs text-zinc-200">{t(block.label)}</div>
                               </div>
                               <Icons.Plus size={14} className="text-zinc-500 group-hover:text-emerald-400 mt-1" />
                             </button>
@@ -3839,7 +4685,7 @@ export default function App() {
                       </AnimatePresence>
                     </div>
                   ) : (
-                    <div className="text-zinc-500 text-sm">No hay nuevas sugerencias por ahora.</div>
+                    <div className="text-zinc-500 text-sm">{t('No new suggestions for now.')}</div>
                   )}
                 </div>
               </div>
@@ -3879,7 +4725,7 @@ export default function App() {
                       type="text" 
                       value={saveHistoryTitle}
                       onChange={e => setSaveHistoryTitle(e.target.value)}
-                      placeholder="e.g. Cyberpunk Neon Portrait"
+                      placeholder={t('e.g. Cyberpunk Neon Portrait')}
                       className="flex-1 bg-zinc-900 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-emerald-500/50"
                       autoFocus
                     />
@@ -3887,7 +4733,7 @@ export default function App() {
                       onClick={generateHistoryTitle}
                       disabled={isGeneratingHistoryTitle}
                       className="px-3 py-2 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 rounded-xl transition-colors disabled:opacity-50 flex items-center justify-center"
-                      title="Suggest title"
+                      title={t('Suggest title')}
                     >
                       {isGeneratingHistoryTitle ? <Icons.Loader2 size={18} className="animate-spin" /> : <Icons.Wand2 size={18} />}
                     </button>
@@ -3938,7 +4784,7 @@ export default function App() {
                       type="text"
                       value={blockSearch} // Reuse blockSearch for history search
                       onChange={(e) => setBlockSearch(e.target.value)}
-                      placeholder="Search in library..."
+                      placeholder={t('Search in library...')}
                       className="w-full bg-zinc-900 border border-white/10 rounded-lg pl-9 pr-4 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500/50 transition-all"
                     />
                   </div>
@@ -4000,9 +4846,9 @@ export default function App() {
                                 setEditingHistoryId(session.id);
                                 setEditingHistoryTitle(session.title || '');
                               }}
-                              title="Click para renombrar"
+                              title={t('Click to rename')}
                             >
-                              {session.title || 'Prompt sin título'}
+                              {session.title || t('Untitled Prompt')}
                             </h3>
                           )}
                           <span className="text-[10px] text-zinc-500 block mt-0.5">{new Date(session.date).toLocaleString()}</span>
@@ -4015,7 +4861,7 @@ export default function App() {
                               setShowShareModal(true);
                             }}
                             className="p-1 text-zinc-500 hover:text-emerald-400 transition-colors"
-                            title="Compartir en Comunidad"
+                            title={t('Share to Community')}
                           >
                             <Icons.Share2 size={14} />
                           </button>
@@ -4028,7 +4874,7 @@ export default function App() {
                           <button 
                             onClick={() => deleteHistoryItem(session.id)}
                             className="p-1 text-zinc-500 hover:text-red-400 transition-colors"
-                            title="Eliminar"
+                            title={t('Delete')}
                           >
                             <Icons.Trash2 size={14} />
                           </button>
@@ -4045,7 +4891,7 @@ export default function App() {
                         ))}
                         {Array.isArray(session.selectedBlocks) && session.selectedBlocks.length > 3 && (
                           <span className="text-[10px] bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded-full">
-                            +{session.selectedBlocks.length - 3} más
+                            +{session.selectedBlocks.length - 3} {t('more')}
                           </span>
                         )}
                       </div>
@@ -4085,14 +4931,14 @@ export default function App() {
             >
               <div className="p-4 border-b border-red-500/20 bg-red-500/5 flex items-center gap-3">
                 <Icons.AlertTriangle className="text-red-400" size={24} />
-                <h2 className="text-lg font-semibold text-white">Contenido Sensible</h2>
+                <h2 className="text-lg font-semibold text-white">{t('Sensitive Content')}</h2>
               </div>
               <div className="p-6 text-zinc-300 text-sm leading-relaxed">
                 <p className="mb-4">
-                  Estás intentando añadir un bloque que contiene material explícito o sensible (NSFW).
+                  {t('You are trying to add a block that contains explicit or sensitive material (NSFW).')}
                 </p>
                 <p>
-                  Para poder utilizar estos bloques, necesitas habilitar el interruptor <strong>"NSFW Permitido"</strong> en la parte superior del área de trabajo.
+                  {t('To use these blocks, you need to enable the "NSFW Allowed" switch at the top of the workspace.')}
                 </p>
               </div>
               <div className="p-4 border-t border-white/10 flex justify-end gap-3 bg-[#0A0A0A]">
@@ -4100,7 +4946,7 @@ export default function App() {
                   onClick={() => setShowNsfwWarning(false)}
                   className="px-4 py-2 rounded-lg text-sm font-medium text-zinc-300 hover:bg-zinc-800 transition-colors"
                 >
-                  Entendido
+                  {t('Got it')}
                 </button>
                 <button 
                   onClick={() => {
@@ -4140,7 +4986,7 @@ export default function App() {
                       type="text"
                       value={blockSearch}
                       onChange={(e) => setBlockSearch(e.target.value)}
-                      placeholder="Buscar subcategoría..."
+                      placeholder={t('Search subcategory...')}
                       className="w-full bg-zinc-900 border border-white/10 rounded-lg pl-9 pr-4 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500/50 transition-all"
                     />
                   </div>
@@ -4184,7 +5030,7 @@ export default function App() {
                           >
                             <Icons.Heart size={14} fill={isFav ? "currentColor" : "none"} />
                           </div>
-                          {block.label}
+                          {t(block.label)}
                         </button>
                       </div>
                     );
@@ -4498,7 +5344,7 @@ export default function App() {
                         id: Date.now().toString(),
                         title: shareTitle,
                         prompt: sharePrompt,
-                        user: 'Tú',
+                        user: t('You'),
                         image: shareImage || `https://picsum.photos/seed/${shareTitle.replace(/\s+/g, '')}/100/100`
                       }, ...communityFeed]);
                       setShowShareModal(false);
@@ -5115,14 +5961,14 @@ export default function App() {
                                 setShowSessionHistory(false);
                               }}
                               className="p-2 text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-colors"
-                              title="Restaurar este prompt"
+                              title={t('Restore this prompt')}
                             >
                               <Icons.RotateCcw size={16} />
                             </button>
                             <button 
                               onClick={() => handleCopyPrompt(entry.prompt)}
                               className="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
-                              title="Copiar"
+                              title={t('Copy')}
                             >
                               <Icons.Copy size={16} />
                             </button>
@@ -5267,7 +6113,7 @@ export default function App() {
                         onClick={handleLogout}
                         className="px-3 py-1.5 bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded-lg text-[10px] font-bold transition-colors"
                       >
-                        Log Out
+                        {t('Log Out')}
                       </button>
                     )}
                   </div>

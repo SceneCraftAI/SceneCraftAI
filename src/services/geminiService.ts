@@ -28,7 +28,7 @@ export async function generateCohesivePrompt(
   const bannedWordsText = bannedWords.length > 0 ? bannedWords.join(', ') : 'None';
   
   const substitutionText = isSubstitutionEnabled 
-    ? `IMPORTANT: Start the prompt EXACTLY with this text: "Sustituye a la persona de la @img2 por la persona de la @img1 . Manten los rasgos faciales exactos de la @img1 pero en encuadre y pose de la @img2. En la imagen no debe aparecer texto. ni logos." Then, add the rest of the prompt. Ignore any blocks that would completely change the main character's identity from img1.`
+    ? `IMPORTANT: Start the prompt EXACTLY with this text: "${outputLanguage === 'es' ? 'Sustituye a la persona de la @img2 por la persona de la @img1 . Manten los rasgos faciales exactos de la @img1 pero en encuadre y pose de la @img2. En la imagen no debe aparecer texto. ni logos.' : 'Replace the person in @img2 with the person in @img1. Keep the exact facial features of @img1 but in the framing and pose of @img2. No text or logos should appear in the image.'}" Then, add the rest of the prompt. Ignore any blocks that would completely change the main character's identity from img1.`
     : '';
 
   const nsfwText = isNsfwEnabled 
@@ -227,18 +227,18 @@ export async function analyzeImageForPrompt(imageBase64: string): Promise<string
             },
           },
           {
-            text: `Analiza esta imagen detalladamente y extrae un prompt descriptivo que podría usarse para generar una imagen similar. 
-            Describe el sujeto, la pose, la ropa, el entorno, la iluminación, el estilo artístico y cualquier detalle relevante.
-            Responde ÚNICAMENTE con el prompt extraído en texto plano, sin introducciones ni explicaciones.`,
+            text: `Analyze this image in detail and extract a descriptive prompt that could be used to generate a similar image. 
+            Describe the subject, pose, clothing, environment, lighting, artistic style, and any relevant details.
+            Respond ONLY with the extracted prompt in plain text, without introductions or explanations.`,
           },
         ],
       },
     });
 
-    return response.text || "No se pudo extraer el prompt de la imagen.";
+    return response.text || "Could not extract prompt from image.";
   } catch (error) {
     console.error("Error analyzing image:", error);
-    return "Ocurrió un error al analizar la imagen.";
+    return "An error occurred while analyzing the image.";
   }
 }
 
@@ -249,12 +249,12 @@ export async function enhancePrompt(prompt: string): Promise<string> {
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `Eres un experto en ingeniería de prompts para IA generativa de imágenes (como Midjourney, Stable Diffusion, DALL-E 3).
-Tu tarea es tomar el siguiente prompt base y mejorarlo significativamente añadiendo detalles técnicos, artísticos, de iluminación, atmósfera y estilo, manteniendo la esencia original pero haciéndolo mucho más profesional y detallado.
+      contents: `You are an expert in prompt engineering for generative AI images (such as Midjourney, Stable Diffusion, DALL-E 3).
+Your task is to take the following base prompt and significantly improve it by adding technical, artistic, lighting, atmosphere, and style details, maintaining the original essence but making it much more professional and detailed.
 
-Prompt Base: "${prompt}"
+Base Prompt: "${prompt}"
 
-Devuelve ÚNICAMENTE el prompt mejorado en inglés, sin explicaciones ni introducciones.`,
+Return ONLY the improved prompt in English, without explanations or introductions.`,
     });
     return response.text || prompt;
   } catch (error) {
@@ -272,12 +272,12 @@ export async function adaptPromptToModel(prompt: string, model: string): Promise
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `Adapta el siguiente prompt para que funcione de manera óptima en el modelo de generación de imágenes: "${model}".
-Asegúrate de usar la sintaxis, los tokens y el estilo que mejor se adapte a ese modelo específico (por ejemplo, Midjourney usa parámetros como --ar, Stable Diffusion usa pesos como (keyword:1.2), etc.).
+      contents: `Adapt the following prompt to work optimally in the image generation model: "${model}".
+Make sure to use the syntax, tokens, and style that best suits that specific model (for example, Midjourney uses parameters like --ar, Stable Diffusion uses weights like (keyword:1.2), etc.).
 
-Prompt Original: "${prompt}"
+Original Prompt: "${prompt}"
 
-Devuelve ÚNICAMENTE el prompt adaptado, sin explicaciones.`,
+Return ONLY the adapted prompt, without explanations.`,
     });
     return response.text || prompt;
   } catch (error) {

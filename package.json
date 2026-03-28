@@ -17,10 +17,12 @@
     "dotenv": "^17.2.3",
     "express": "^4.22.1",
     "firebase": "^12.11.0",
+    "i18next": "^26.0.0",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-i18next": "^17.0.0",
     "socket.io": "^4.8.3",
     "socket.io-client": "^4.8.3",
     "vite": "^6.2.0"

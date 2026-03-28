@@ -353,7 +353,7 @@ export const CategoryAndPromptManager: React.FC<CategoryAndPromptManagerProps> =
                           >
                             <div className="flex items-center gap-3">
                               {Icons[cat.icon as keyof typeof Icons] ? React.createElement(Icons[cat.icon as keyof typeof Icons] as any, { size: 16 }) : <Icons.Folder size={16} />}
-                              <span>{cat.label}</span>
+                              <span>{t(cat.label)}</span>
                             </div>
                             <Icons.ChevronRight size={14} className={`transition-transform ${expandedBaseCategories.includes(cat.id) ? 'rotate-90' : ''}`} />
                           </button>
@@ -367,7 +367,7 @@ export const CategoryAndPromptManager: React.FC<CategoryAndPromptManagerProps> =
                               >
                                 {baseBlocks.filter(b => b.categoryId === cat.id).map(block => (
                                   <div key={block.id} className="px-3 py-1.5 text-xs text-zinc-500 hover:text-zinc-300 transition-colors cursor-default">
-                                    {block.label}
+                                    {t(block.label)}
                                   </div>
                                 ))}
                                 {customCategories.filter(c => c.parentId === cat.id).map(customSub => (
@@ -552,7 +552,7 @@ export const CategoryAndPromptManager: React.FC<CategoryAndPromptManagerProps> =
                                 {isSelected && <Icons.Check size={12} strokeWidth={4} />}
                               </button>
                               <div className="overflow-hidden">
-                                <h5 className="text-sm font-bold text-white truncate">{block.label}</h5>
+                                <h5 className="text-sm font-bold text-white truncate">{t(block.label)}</h5>
                                 <p className="text-[10px] text-zinc-500 truncate italic">"{block.promptText || block.value}"</p>
                               </div>
                             </div>
@@ -576,7 +576,7 @@ export const CategoryAndPromptManager: React.FC<CategoryAndPromptManagerProps> =
                                 {isSelected && <Icons.Check size={12} strokeWidth={4} />}
                               </button>
                               <div className="overflow-hidden">
-                                <h5 className="text-sm font-bold text-white truncate">{block.label}</h5>
+                                <h5 className="text-sm font-bold text-white truncate">{t(block.label)}</h5>
                                 <p className="text-[10px] text-emerald-500/50 truncate italic">"{block.promptText}"</p>
                               </div>
                             </div>
@@ -584,7 +584,7 @@ export const CategoryAndPromptManager: React.FC<CategoryAndPromptManagerProps> =
                               <button onClick={() => handleOpenBlockModal(block)} className="p-1.5 text-zinc-400 hover:text-white hover:bg-white/5 rounded-md">
                                 <Icons.Edit2 size={12} />
                               </button>
-                              <button onClick={() => confirmDelete('block', block.id, block.label)} className="p-1.5 text-zinc-400 hover:text-red-400 hover:bg-red-400/10 rounded-md">
+                              <button onClick={() => confirmDelete('block', block.id, t(block.label))} className="p-1.5 text-zinc-400 hover:text-red-400 hover:bg-red-400/10 rounded-md">
                                 <Icons.Trash2 size={12} />
                               </button>
                             </div>
