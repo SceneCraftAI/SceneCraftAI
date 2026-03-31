@@ -1,0 +1,350 @@
+Delete Category
+Are you sure you want to delete this category?
+All blocks inside will also be deleted.
+Delete Folder
+Are you sure you want to delete this folder?
+The prompts inside will not be deleted, but will lose their association.
+Delete Item
+Are you sure you want to delete this item?
+This action cannot be undone.
+Delete Prompt
+Are you sure you want to delete this prompt?
+This action cannot be undone.
+Copied successfully to clipboard
+,
+Prompt {n}
+
+Invitation received! {inviter} invited you to the topic: {topicTitle}
+
+
+
+
+ 
+Saved to Library!
+Smartphone ({model})
+Generic model
+Bust ({size})
+Natural measurement
+,
+
+New Subcategory
+New Subcategory
+Undo
+Save
+More options
+My Library
+Account Settings
+Herramientas
+Comunidad
+Admin
+Escena
+Prompting General
+Recreación
+Variaciones
+Flow
+Alquimia
+Feed
+Co-Working
+Admin Panel
+Wide field of view, ideal for landscapes or architecture. May distort edges.
+Natural perspective, similar to human vision. Excellent for reportage and street.
+The standard. Very versatile, ideal for half-body portraits and general use.
+Classic for portraits. Compresses the background and favors facial features.
+Brings distant objects closer and compresses perspective significantly. Very blurred background.
+Captures a lot of information from the environment. Useful in closed spaces.
+Natural smartphone style, great depth of field, visible digital processing.
+Specific lens effect to alter the image aesthetics.
+Categories
+Visual Categories
+Manage Categories and Prompts
+Custom Category
+Click on the blocks to add them to your prompt.
+Subcategories
+Items
+Manage
+No items in this category
+Back to top-level category
+(View More)
+Filter...
+NEWS:
+Scene Structure
+Expand structure
+Collapse structure
+Expand
+Collapse
+Expand structure
+Manage
+Select blocks on the left or ask something in the chat to start.
+Custom
+Prompt Final
+Magic Enhance (AI)
+Limit
+Character limit
+Optimize for limit
+GENERATE NOW
+Editing banned words
+Compiling...
+Switch to Auto Generation
+Switch to Manual Generation
+Manual
+Auto
+AI Target (Optimization)
+Code Generation
+Session History (Temporary)
+Session History
+The generated prompt will appear here...
+View highlighted
+Edit plain text
+Copy prompt
+Ex: Make it more casual, change to neon light, add a mirror...
+Image Recreation
+Upload a reference image to extract a detailed prompt.
+
+Change Image
+Analyzing...
+Analyzed
+Extract Prompt
+Drag and drop an image here, or click to select.
+Select File
+Or use a link
+Paste image URL here...
+Load URL
+Extracted Prompt
+Clean Prompt
+Revert
+Save Style
+Integrate into Scene
+Prompt Variations
+Generate variations of your current prompt by changing specific aspects.
+Back to Prompting
+No current prompt to vary. Go to the Prompting tab and create one.
+Apply
+Prompt Flow (Storytelling)
+Create a story or sequence of events based on your current prompt.
+No current prompt. Go to the Prompting tab and create one.
+Story Configuration
+Describe the story or general context:
+Ex: A heavy day at work, from waking up until returning home exhausted...
+Number of prompts (Max 20):
+Final Prompt Position:
+Automatic (Based on coherence)
+Position
+Generating Flow...
+Generate Story
+Copy prompt
+Community & Inspiration
+Explore prompts created by other users, get inspired and share your creations.
+Search by title or prompt...
+Most recent
+Most popular
+Take to Prompting
+Prompt Alchemy
+Combine up to 6 images to generate unique and coherent prompts.
+input
+Transmutation Results
+Variation
+Alchemy History
+No coworking topics yet.
+
+Type a message...
+Admin Panel
+User Management
+Premium
+Free
+User subscription updated!
+Gift Subscription
+Delete User
+Are you sure you want to delete this user? This action cannot be undone.
+User deleted!
+Delete User
+Free Tier
+month
+daily prompts
+Basic access
+No Magic Enhance
+Configure
+POPULAR
+Pro Tier
+month
+daily prompts
+Magic Enhance
+Sin anuncios
+Configure
+Elite Tier
+month
+Unlimited prompts
+Priority support
+Early access
+Configure
+Content Moderation
+Shows tabs under construction
+App Version
+e.g. baby, child...
+No new suggestions for now.
+e.g. Cyberpunk Neon Portrait
+Suggest title
+Search in library...
+Click to rename
+Untitled Prompt
+Share to Community
+Delete
+more
+Sensitive Content
+You are trying to add a block that contains explicit or sensitive material (NSFW).
+To use these blocks, you need to enable the "NSFW Allowed" switch at the top of the workspace.
+Got it
+Search subcategory...
+Integrate Recreation
+Current Prompt (Prompting)
+No current prompt...
+Extracted Prompt (Recreation)
+Integration Options
+Image Recreation
+Add (Combine)
+Adds the extracted prompt as a new block in the Scene Structure. The AI will mix it with your current prompt.
+Recreation Details
+Use Final Prompt parameters
+Adds the image as a secondary block. Maintains your current structure and only adds details that do not contradict what you already chose.
+Exact Recreation
+Use Recreation parameters
+Completely replaces your current structure with a single block containing the description of the uploaded image.
+Clean Prompt
+Select the elements you want to remove from the extracted prompt:
+Tattoos
+Piercings
+Hair details (color, style)
+Specific facial features
+Specific clothing
+Background / Environment
+Deselect All
+Select All
+Cancel
+Cleaning...
+Clean
+Share Prompt
+Prompt Title:
+Ex: Cyberpunk Neon Portrait
+Prompt (English):
+The prompt you want to share...
+Example Image URL (Optional):
+Cancel
+You
+
+Publish
+Copy Prompt
+Use Prompt
+Prompt Book
+Use Prompt
+Create New Topic
+Topic Title
+Ex: Futuristic Project, Rain Session...
+Description
+Brief description of what will be discussed...
+Cancel
+Create Topic
+Publish News
+Title
+News title...
+Content
+Write the content here...
+Cancel
+
+Publish
+Invite to Topic
+Enter email or unique user (Name#1234) to invite.
+Email or User#Hashtag
+Ex: user@gmail.com or Name#1234
+Cancel
+Send Invitation
+Bust Measurement
+Specify bust measurement or "Bra Cup" for better body consistency.
+Bra Cup / Measurement
+Ex: 34C, Large, DD cup...
+Cancel
+Confirm
+Smartphone Details
+What smartphone model would you like to appear in the prompt?
+Model / Brand
+Ex: iPhone 15 Pro Max, Samsung S24 Ultra...
+Cancel
+Confirm
+Recycle Bin
+Recover accidentally deleted prompts.
+The bin is empty
+Untitled Prompt
+Restore
+Delete permanently
+Empty Bin
+Are you sure you want to empty the bin? This action cannot be undone.
+Empty Bin
+Restore this prompt
+Copy
+Save Style
+Save this prompt as a reusable style
+Style Name
+Ex: Cyberpunk Neon, Realistic Portrait...
+What do you want to save from this recreation?
+Everything in General
+Save the full prompt as a base style.
+Something Specific
+Save only key elements (lights, atmosphere, technique).
+Cancel
+Settings
+Personalize your SceneCraft AI experience
+Hi
+@
+Account
+Connected as
+Log in to save your progress
+Premium Plan
+Free Plan
+Log Out
+Visual Theme
+Switch between dark and light mode
+Dark
+Light
+NSFW Content
+Allow explicit blocks and terms
+Interface Language
+Change the application language
+Prompt Language
+Output language for generated prompts
+Manual Generation
+Enable manual editing of the final prompt
+UI Style
+Preset layouts for the platform
+Modern (Default)
+Glassmorphism
+Brutalist
+Accent Color
+Primary color of the interface
+Emerald (Default)
+Blue
+Purple
+Rose
+Amber
+Save and Apply
+Sign In with Google
+Restart Guided Tutorial
+Scene Structure
+Detailed Block Management
+No elements in the current scene.
+Custom
+Chat Instruction
+active elements
+Clear Scene
+Add New Prompt
+Save your best creations
+Title
+Ex: Cyberpunk Portrait
+Prompt Content
+Write or paste your prompt here...
+Cancel
+Add Prompt
+Cancel
+Confirm
+Edit Chat Topic
+Modify your custom instruction
+Write your instruction here...
+Cancel
+Save Changes

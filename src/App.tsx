@@ -18,8 +18,12 @@ import { auth, db, signInWithGoogle, logOut, handleFirestoreError, OperationType
 import { onAuthStateChanged } from 'firebase/auth';
 import { collection, query, orderBy, limit, onSnapshot, addDoc, serverTimestamp, doc, setDoc, deleteDoc, getDoc, updateDoc, where } from 'firebase/firestore';
 
+import { translations } from './translations';
+
 export default function App() {
   const [selectedBlocks, setSelectedBlocks] = useState<Block[]>([]);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isAuthReady, setIsAuthReady] = useState(false);
   const [activeCategory, setActiveCategory] = useState<CategoryId>('result');
   const [workMode, setWorkMode] = useState<WorkMode>('prompting');
   
@@ -97,7 +101,25 @@ export default function App() {
   const [generatedFlow, setGeneratedFlow] = useState<{title: string, description: string, prompt: string}[]>([]);
   const [isGeneratingFlow, setIsGeneratingFlow] = useState(false);
 
-  // Recreation Clean State
+  // Admin: Fetch all users
+  useEffect(() => {
+    if (currentUser?.isAdmin && workMode === 'admin') {
+      const usersRef = collection(db, 'users');
+      const q = query(usersRef, orderBy('createdAt', 'desc'), limit(100));
+      
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const usersData = snapshot.docs.map(doc => ({
+          ...doc.data(),
+          uid: doc.id
+        })) as User[];
+        setAllUsers(usersData);
+      }, (error) => {
+        handleFirestoreError(error, OperationType.GET, 'users');
+      });
+      
+      return () => unsubscribe();
+    }
+  }, [currentUser, workMode]);
   const [showCleanModal, setShowCleanModal] = useState(false);
   const [cleanOptions, setCleanOptions] = useState<string[]>([]);
   const [originalRecreationPrompt, setOriginalRecreationPrompt] = useState<string | null>(null);
@@ -210,1232 +232,6 @@ export default function App() {
     { code: 'ko', name: '한국어' },
     { code: 'ru', name: 'Русский' }
   ];
-
-  const translations: Record<string, Record<string, string>> = {
-    es: {
-      'Visual Result': 'Resultado Visual',
-      'Main Focus': 'Enfoque Principal',
-      'Scene Type': 'Tipo de Escena',
-      'Environment': 'Ambientación',
-      'Action / Situation': 'Acción / Situación',
-      'Movement': 'Movimiento',
-      'Gesticulation': 'Gesticulación',
-      'Exposed Parts': 'Partes Expuestas',
-      'Camera / Angle': 'Cámara / Ángulo',
-      'Lens / Parameters': 'Lentes / Parámetros',
-      'Lighting': 'Iluminación',
-      'Realism': 'Realismo',
-      'Outfit / Styling': 'Outfit / Styling',
-      'Makeup': 'Maquillaje',
-      'Palette / Color': 'Paleta / Color',
-      'Background & Props': 'Fondo y Props',
-      'Intention': 'Intención',
-      'Body Details': 'Detalles del Cuerpo',
-      'Image Qualities': 'Calidades de Imagen',
-      'Restrictions': 'Restricciones',
-      'My Prompts': 'Mis Prompts',
-      'Artistic Style': 'Estilo Artístico',
-      'Main Subject': 'Sujeto Principal',
-      'Environment / Landscape': 'Entorno / Paisaje',
-      'Camera / Composition': 'Cámara / Composición',
-      'Atmosphere / Mood': 'Atmósfera / Mood',
-      'Color Palette': 'Paleta de Color',
-      'Detail Level': 'Nivel de Detalle',
-      'Tools': 'Herramientas',
-      'Space': 'Espacio',
-      'Community': 'Comunidad',
-      'Scene': 'Escena',
-      'Recreation': 'Recreación',
-      'Variations': 'Variaciones',
-      'General Prompting': 'Prompting General',
-      'Flow': 'Flow',
-      'Feed': 'Feed',
-      'Co-Working': 'Co-Working',
-      'History': 'Historial',
-      'Generate Now': 'Generar Ahora',
-      'Copied successfully to clipboard': 'Copiado exitosamente en el portapapeles',
-      'Search blocks...': 'Buscar bloques...',
-      'Select options': 'Selecciona opciones',
-      'Custom': 'Personalizado',
-      'Banned Words': 'Palabras Prohibidas',
-      'Add word': 'Añadir palabra',
-      'Locked': 'Bloqueado',
-      'Unlocked': 'Desbloqueado',
-      'Settings': 'Ajustes',
-      'Theme': 'Tema',
-      'Dark': 'Oscuro',
-      'Light': 'Claro',
-      'UI Style': 'Estilo de UI',
-      'Modern': 'Moderno',
-      'Glass': 'Cristal',
-      'Brutalist': 'Brutalista',
-      'Color Theme': 'Tema de Color',
-      'Prompt Language': 'Idioma del Prompt',
-      'Interface Language': 'Idioma de Interfaz',
-      'NSFW Content': 'Contenido NSFW',
-      'Prompt Character Limit': 'Límite de Caracteres',
-      'Close': 'Cerrar',
-      'Save': 'Guardar',
-      'Cancel': 'Cancelar',
-      'Delete': 'Eliminar',
-      'Edit': 'Editar',
-      'Copy': 'Copiar',
-      'Share': 'Compartir',
-      'Download': 'Descargar',
-      'Upload': 'Subir',
-      'Login': 'Iniciar Sesión',
-      'Logout': 'Cerrar Sesión',
-      'Admin Panel': 'Panel de Admin',
-      'Users': 'Usuarios',
-      'News': 'Noticias',
-      'Subscriptions': 'Suscripciones',
-      'Content': 'Contenido',
-      'Manual Generation': 'Generación Manual',
-      'Auto Generation': 'Generación Automática',
-      'Manual': 'Manual',
-      'Auto': 'Auto',
-      'Compiling...': 'Compilando...',
-      'Optimizing...': 'Optimizando...',
-      'Generating...': 'Generando...',
-      'Success': 'Éxito',
-      'Error': 'Error',
-      'Warning': 'Advertencia',
-      'Confirm': 'Confirmar',
-      'Are you sure?': '¿Estás seguro?',
-      'This action cannot be undone.': 'Esta acción no se puede deshacer.',
-      'Prompt optimized successfully': 'Prompt optimizado con éxito',
-      'Failed to optimize prompt': 'Error al optimizar el prompt',
-      'No blocks selected': 'No hay bloques seleccionados',
-      'Add custom instruction...': 'Añadir instrucción personalizada...',
-      'Clear all': 'Limpiar todo',
-      'Undo': 'Deshacer',
-      'Redo': 'Rehacer',
-      'Favorites': 'Favoritos',
-      'All': 'Todos',
-      'Search...': 'Buscar...',
-      'No results found': 'No se encontraron resultados',
-      'Loading...': 'Cargando...',
-      'Welcome back': 'Bienvenido de nuevo',
-      'Please login to save your prompts': 'Por favor, inicia sesión para guardar tus prompts',
-      'New Prompt': 'Nuevo Prompt',
-      'Title': 'Título',
-      'Save Prompt': 'Guardar Prompt',
-      'Edit Prompt': 'Editar Prompt',
-      'Delete Prompt': 'Eliminar Prompt',
-      'Share Prompt': 'Compartir Prompt',
-      'Copy to clipboard': 'Copiar al portapapeles',
-      'Prompt copied!': '¡Prompt copiado!',
-      'View Profile': 'Ver Perfil',
-      'My Profile': 'Mi Perfil',
-      'Public Feed': 'Feed Público',
-      'Trending': 'Tendencias',
-      'Recent': 'Recientes',
-      'Popular': 'Populares',
-      'Follow': 'Seguir',
-      'Recycle Bin': 'Papelera de Reciclaje',
-      'Empty Bin': 'Vaciar Papelera',
-      'Restore': 'Restaurar',
-      'Delete Permanently': 'Eliminar Permanentemente',
-      'No items in bin': 'No hay elementos en la papelera',
-      'Tutorial': 'Tutorial',
-      'Skip': 'Saltar',
-      'Next': 'Siguiente',
-      'Finish': 'Finalizar',
-      'Welcome to SceneCraft': 'Bienvenido a SceneCraft',
-      'Start building your scene': 'Empieza a construir tu escena',
-      'Select categories and blocks': 'Selecciona categorías y bloques',
-      'Customize your prompt': 'Personaliza tu prompt',
-      'Generate and share': 'Genera y comparte',
-      'Influencer Mode': 'Modo Influencer',
-      'General Mode': 'Modo General',
-      'Switch Mode': 'Cambiar Modo',
-      'Category Manager': 'Gestor de Categorías',
-      'Add Category': 'Añadir Categoría',
-      'Edit Category': 'Editar Categoría',
-      'Delete Category': 'Eliminar Categoría',
-      'Add Block': 'Añadir Bloque',
-      'Edit Block': 'Editar Bloque',
-      'Delete Block': 'Eliminar Bloque',
-      'Category Name': 'Nombre de la Categoría',
-      'Block Title': 'Título del Bloque',
-      'Block Value': 'Valor del Bloque',
-      'Icon': 'Icono',
-      'Color': 'Color',
-      'Parent Category': 'Categoría Padre',
-      'None': 'Ninguno',
-      'Subcategories': 'Subcategorías',
-      'Items': 'Elementos',
-      'Back': 'Volver',
-      'Save Changes': 'Guardar Cambios',
-      'Discard': 'Descartar',
-      'Are you sure you want to delete this category?': '¿Estás seguro de que quieres eliminar esta categoría?',
-      'All blocks inside will also be deleted.': 'Todos los bloques dentro también se eliminarán.',
-      'Are you sure you want to delete this folder?': '¿Estás seguro de que quieres eliminar esta carpeta?',
-      'The prompts inside will not be deleted, but will lose their association.': 'Los prompts dentro de ella no se eliminarán, pero perderán su asociación.',
-      'Are you sure you want to delete this block?': '¿Estás seguro de que quieres eliminar este bloque?',
-      'Are you sure you want to delete this prompt?': '¿Estás seguro de que quieres eliminar este prompt?',
-      'This cannot be undone.': 'Esto no se puede deshacer.',
-      'This action cannot be undone.': 'Esta acción no se puede deshacer.',
-      'New Subcategory': 'Nueva Subcategoría',
-      'New Item': 'Nuevo Elemento',
-      'Edit Instruction': 'Editar Instrucción',
-      'Instruction Text': 'Texto de la Instrucción',
-      'Banned Word': 'Palabra Prohibida',
-      'Add Banned Word': 'Añadir Palabra Prohibida',
-      'Enter word...': 'Introduce palabra...',
-      'Unlock to edit': 'Desbloquea para editar',
-      'Lock': 'Bloquear',
-      'Unlock': 'Desbloquear',
-      'News & Updates': 'Noticias y Actualizaciones',
-      'No news yet': 'No hay noticias aún',
-      'Read more': 'Leer más',
-      'Mark as read': 'Marcar como leído',
-      'Admin': 'Admin',
-      'User Detail': 'Detalle de Usuario',
-      'Role': 'Rol',
-      'Plan': 'Plan',
-      'Free Prompts Used': 'Prompts Gratuitos Usados',
-      'Subscribed': 'Suscrito',
-      'Subscription Tier': 'Nivel de Suscripción',
-      'Created At': 'Creado el',
-      'Updated At': 'Actualizado el',
-      'Change Role': 'Cambiar Rol',
-      'Change Tier': 'Cambiar Nivel',
-      'Confirm Subscription Change': 'Confirmar Cambio de Suscripción',
-      'Please enter the admin email to confirm': 'Por favor, introduce el correo de admin para confirmar',
-      'Invalid admin email': 'Correo de admin inválido',
-      'Subscription updated successfully': 'Suscripción actualizada con éxito',
-      'Failed to update subscription': 'Error al actualizar la suscripción',
-      'User updated successfully': 'Usuario actualizado con éxito',
-      'Failed to update user': 'Error al actualizar el usuario',
-      'News created successfully': 'Noticia creada con éxito',
-      'Failed to create news': 'Error al crear la noticia',
-      'News deleted successfully': 'Noticia eliminada con éxito',
-      'Failed to delete news': 'Error al eliminar la noticia',
-      'Category saved successfully': 'Categoría guardada con éxito',
-      'Failed to save category': 'Error al guardar la categoría',
-      'Category deleted successfully': 'Categoría eliminada con éxito',
-      'Failed to delete category': 'Error al eliminar la categoría',
-      'Block saved successfully': 'Bloque guardado con éxito',
-      'Failed to save block': 'Error al guardar el bloque',
-      'Block deleted successfully': 'Bloque eliminado con éxito',
-      'Failed to delete block': 'Error al eliminar el bloque',
-      'Prompt saved successfully': 'Prompt guardado con éxito',
-      'Failed to save prompt': 'Error al guardar el prompt',
-      'Prompt deleted successfully': 'Prompt eliminado con éxito',
-      'Failed to delete prompt': 'Error al eliminar el prompt',
-      'Folder saved successfully': 'Carpeta guardada con éxito',
-      'Failed to save folder': 'Error al guardar la carpeta',
-      'Folder deleted successfully': 'Carpeta eliminada con éxito',
-      'Failed to delete folder': 'Error al eliminar la carpeta',
-      'Style saved successfully': 'Estilo guardado con éxito',
-      'Failed to save style': 'Error al guardar el estilo',
-      'Style deleted successfully': 'Estilo eliminado con éxito',
-      'Failed to delete style': 'Error al eliminar el estilo',
-      'Topic created successfully': 'Tópico creado con éxito',
-      'Failed to create topic': 'Error al crear el tópico',
-      'Invitation sent successfully': 'Invitación enviada con éxito',
-      'Failed to send invitation': 'Error al enviar la invitación',
-      'Message sent successfully': 'Mensaje enviado con éxito',
-      'Failed to send message': 'Error al enviar el mensaje',
-      'Login successful': 'Inicio de sesión exitoso',
-      'Logout successful': 'Cierre de sesión exitoso',
-      'Action cancelled': 'Acción cancelada',
-      'Optimizar para el límite': 'Optimize for limit',
-      'Editing banned words': 'Editando palabras prohibidas',
-      'SceneCraft Soul': 'SceneCraft Soul',
-      'Midjourney (V6+)': 'Midjourney (V6+)',
-      'Stable Diffusion (XL/3)': 'Stable Diffusion (XL/3)',
-      'DALL-E 3': 'DALL-E 3',
-      'IA Target (Optimización)': 'AI Target (Optimization)',
-      'Cambiar a Generación Automática': 'Switch to Auto Generation',
-      'Cambiar a Generación Manual': 'Switch to Manual Generation',
-      'GENERAR AHORA': 'GENERATE NOW',
-      'Resultado Visual': 'Visual Result',
-      'Enfoque Principal': 'Main Focus',
-      'Tipo de Escena': 'Scene Type',
-      'Ambientación': 'Environment',
-      'Acción / Situación': 'Action / Situation',
-      'Movimiento': 'Movement',
-      'Gesticulación': 'Gesticulation',
-      'Partes Expuestas': 'Exposed Parts',
-      'Cámara / Ángulo': 'Camera / Angle',
-      'Lentes / Parámetros': 'Lens / Parameters',
-      'Iluminación': 'Lighting',
-      'Realismo': 'Realism',
-      'Maquillaje': 'Makeup',
-      'Paleta / Color': 'Palette / Color',
-      'Fondo y Props': 'Background & Props',
-      'Intención': 'Intention',
-      'Detalles del Cuerpo': 'Body Details',
-      'Calidades de Imagen': 'Image Qualities',
-      'Restricciones': 'Restrictions',
-      'Mis Prompts': 'My Prompts',
-      'Estilo Artístico': 'Artistic Style',
-      'Sujeto Principal': 'Main Subject',
-      'Entorno / Paisaje': 'Environment / Landscape',
-      'Cámara / Composición': 'Camera / Composition',
-      'Atmósfera / Mood': 'Atmosphere / Mood',
-      'Paleta de Color': 'Color Palette',
-      'Nivel de Detalle': 'Detail Level',
-      'Alchemy History': 'Historial de Alquimia',
-      'Prompt Alchemy': 'Alquimia de Prompts',
-      'Visual Categories': 'Categorías Visuales',
-      'Scene Structure': 'Estructura de la Escena',
-      'The generated prompt will appear here...': 'El prompt generado aparecerá aquí...',
-      'View More': 'Ver más',
-      'Click on the blocks to add them to your prompt.': 'Haz clic en los bloques para añadirlos a tu prompt.',
-      'Ex: Make it more casual, change to neon light, add a mirror...': 'Ej: Hazlo más casual, cambia a luz de neón, añade un espejo...',
-      'Integrate into Scene': 'Integrar a la Escena',
-      'Generating Flow...': 'Generando Flujo...',
-      'Generate Story': 'Generar Historia',
-      'Community & Inspiration': 'Comunidad e Inspiración',
-      'Share to Community': 'Compartir en Comunidad',
-      'Comunidad': 'Comunidad',
-      'Historial': 'Historial',
-      'Herramientas': 'Herramientas',
-      'Espacio': 'Espacio',
-      'Subs': 'Suscripciones',
-      'Cleaning...': 'Limpiando...',
-      'Clean': 'Limpiar',
-      'Prompt Title:': 'Título del Prompt:',
-      'Ex: Cyberpunk Neon Portrait': 'Ej: Retrato Cyberpunk Neón',
-      'Prompt (English):': 'Prompt (Inglés):',
-      'The prompt you want to share...': 'El prompt que deseas compartir...',
-      'Example Image URL (Optional):': 'URL de Imagen de Ejemplo (Opcional):',
-      'https://example.com/image.jpg': 'https://ejemplo.com/imagen.jpg',
-      'Publish': 'Publicar',
-      'Copy Prompt': 'Copiar Prompt',
-      'Use Prompt': 'Usar Prompt',
-      'Prompt Book': 'Libro de Prompts',
-      'This user hasn\'t shared any prompts yet.': 'Este usuario aún no ha compartido prompts.',
-      'Create New Topic': 'Crear Nuevo Tema',
-      'Ex: Futuristic Project, Rain Session...': 'Ej: Proyecto Futurista, Sesión de Lluvia...',
-      'Brief description of what will be discussed...': 'Breve descripción de lo que se discutirá...',
-      'Publish News': 'Publicar Noticia',
-      'News title...': 'Título de la noticia...',
-      'Write the content here...': 'Escribe el contenido aquí...',
-      'Invite to Topic': 'Invitar al Tema',
-      'Enter email or unique user (Name#1234) to invite.': 'Ingresa el correo electrónico o el usuario único (Nombre#1234) para invitar.',
-      'Ex: user@gmail.com or Name#1234': 'Ej: usuario@gmail.com o Nombre#1234',
-      'Send Invitation': 'Enviar Invitación',
-      'Bust Measurement': 'Medida de Busto',
-      'Bust ({size})': 'Busto ({size})',
-      'Natural measurement': 'Medida natural',
-      'Specify bust measurement or "Bra Cup" for better body consistency.': 'Especifica la medida del busto o "Bra Cup" para mayor consistencia en el cuerpo.',
-      'Bra Cup / Measurement': 'Bra Cup / Medida',
-      'Ex: 34C, Large, DD cup...': 'Ej: 34C, Large, DD cup...',
-      'Smartphone Details': 'Detalles del Celular',
-      'What smartphone model would you like to appear in the prompt?': '¿Qué modelo de celular o smartphone te gustaría que aparezca en el prompt?',
-      'Smartphone ({model})': 'Celular ({model})',
-      'Generic model': 'Modelo genérico',
-      'Model / Brand': 'Modelo / Marca',
-      'Ex: iPhone 15 Pro Max, Samsung S24 Ultra...': 'Ej: iPhone 15 Pro Max, Samsung S24 Ultra...',
-      'Recover accidentally deleted prompts.': 'Recupera prompts eliminados accidentalmente.',
-      'The bin is empty': 'La papelera está vacía',
-      'Untitled Prompt': 'Prompt sin título',
-      'Delete permanently': 'Eliminar permanentemente',
-      'Are you sure you want to empty the bin? This action cannot be undone.': '¿Estás seguro de que quieres vaciar la papelera? Esta acción no se puede deshacer.',
-      'Restore this prompt': 'Restaurar este prompt',
-      'Save this prompt as a reusable style': 'Guarda este prompt como un estilo reutilizable',
-      'Ex: Cyberpunk Neon, Realistic Portrait...': 'Ej: Cyberpunk Neon, Retrato Realista...',
-      'What do you want to save from this recreation?': '¿Qué deseas guardar de esta recreación?',
-      'Everything in General': 'Todo en General',
-      'Save the full prompt as a base style.': 'Guarda el prompt completo como un estilo base.',
-      'Something Specific': 'Algo Específico',
-      'Save only key elements (lights, atmosphere, technique).': 'Guarda solo los elementos clave (luces, atmósfera, técnica).',
-      'Detailed Block Management': 'Gestión Detallada de Bloques',
-      'There are no elements in the current scene.': 'No hay elementos en la escena actual.',
-      'Chat Instruction': 'Instrucción Chat',
-      'Clear Scene': 'Limpiar Escena',
-      'Add New Prompt': 'Añadir Nuevo Prompt',
-      'Save your best creations': 'Guarda tus mejores creaciones',
-      'Ex: Cyberpunk Portrait': 'Ej: Retrato Cyberpunk',
-      'Prompt Content': 'Contenido del Prompt',
-      'Write or paste your prompt here...': 'Escribe o pega tu prompt aquí...',
-      'Add Prompt': 'Añadir Prompt',
-      'Edit Chat Topic': 'Editar Tópico de Chat',
-      'Modify your custom instruction': 'Modifica tu instrucción personalizada',
-      'Write your instruction here...': 'Escribe tu instrucción aquí...',
-      'Prompt Folders': 'Carpetas de Prompts',
-      'All Prompts': 'Todos los Prompts',
-      'Base Categories': 'Categorías Base',
-      'My Categories': 'Mis Categorías',
-      'My Saved Prompts': 'Mis Prompts Guardados',
-      'Category Details': 'Detalles de la Categoría',
-      'My Custom Categories': 'Mis Categorías Personalizadas',
-      'Showing {n} prompts': 'Mostrando {n} prompts',
-      'Manage items and subcategories': 'Gestionar elementos y subcategorías',
-      'Showing {n} custom categories': 'Mostrando {n} categorías personalizadas',
-      'Add Item': 'Añadir Elemento',
-      'Add {type}': 'Añadir {type}',
-      'Prompt': 'Prompt',
-      'Category': 'Categoría',
-      'Items / Variants': 'Elementos / Variantes',
-      'Base': 'Base',
-      'Subcategories / Folders': 'Subcategorías / Carpetas',
-      'Top-level category': 'Categoría de nivel superior',
-      'e.g. My Style': 'ej. Mi Estilo',
-      'Parent Category (Optional)': 'Categoría Padre (Opcional)',
-      'None (Top-level)': 'Ninguno (Nivel superior)',
-      'Save Category': 'Guardar Categoría',
-      'Label': 'Etiqueta',
-      'e.g. Cinematic Lighting': 'ej. Iluminación Cinemática',
-      'Prompt Text': 'Texto del Prompt',
-      'The text that will be added to the prompt...': 'El texto que se añadirá al prompt...',
-      'Save Item': 'Guardar Elemento',
-      'e.g. Hyper-realistic Portrait': 'ej. Retrato Hiperrealista',
-      'Write your prompt here...': 'Escribe tu prompt aquí...',
-      'Folder': 'Carpeta',
-      'No Folder': 'Sin Carpeta',
-      'Delete Folder': 'Eliminar Carpeta',
-      'Delete Item': 'Eliminar Elemento',
-      'Are you sure you want to delete this item? This action cannot be undone.': '¿Estás seguro de que quieres eliminar este elemento? Esta acción no se puede deshacer.',
-      'Manage users, subscriptions and platform content.': 'Gestiona usuarios, suscripciones y contenido de la plataforma.',
-      'Total Users': 'Usuarios Totales',
-      'User Management': 'Gestión de Usuarios',
-      'User': 'Usuario',
-      'Status': 'Estado',
-      'Prompts': 'Prompts',
-      'Actions': 'Acciones',
-      'Admin / Creator': 'Admin / Creador',
-      'Active': 'Activo',
-      'Owner': 'Propietario',
-      'Standard User': 'Usuario Estándar',
-      'Free': 'Gratis',
-      'Gift Subscription': 'Regalar Suscripción',
-      'Block User': 'Bloquear Usuario',
-      'Free Tier': 'Tier Free',
-      'month': 'mes',
-      'daily prompts': 'prompts diarios',
-      'Basic access': 'Acceso básico',
-      'No Magic Enhance': 'Sin Magic Enhance',
-      'Configure': 'Configurar',
-      'POPULAR': 'POPULAR',
-      'Pro Tier': 'Tier Pro',
-      'No ads': 'Sin anuncios',
-      'Elite Tier': 'Tier Elite',
-      'Magic Enhance (AI)': 'Magic Enhance (AI)',
-      'Unlimited prompts': 'Prompts ilimitados',
-      'Priority support': 'Soporte prioritario',
-      'Early access': 'Acceso anticipado',
-      'Content Moderation': 'Moderación de Contenido',
-      'Platform Controls': 'Controles de Plataforma',
-      'Global Maintenance': 'Mantenimiento Global',
-      'Blocks access to all users': 'Bloquea el acceso a todos los usuarios',
-      'New Features (Spoilers)': 'Nuevas Funciones (Spoilers)',
-      'Shows tabs under construction': 'Muestra pestañas en construcción',
-      'System Status': 'Estado del Sistema',
-      'App Version': 'Versión App',
-      'Database': 'Base de Datos',
-      'Connected (Firebase)': 'Conectado (Firebase)',
-      'Collapse suggestions': 'Contraer sugerencias',
-      'Show suggestions': 'Mostrar sugerencias',
-      'Copilot': 'Copiloto',
-      'Suggestions for your Prompt': 'Sugerencias para tu Prompt',
-      'Build your scene to receive contextual suggestions.': 'Construye tu escena para recibir sugerencias contextuales.',
-      'Suggestions for your scene': 'Sugerencias para tu escena',
-      'No new suggestions for now.': 'No hay nuevas sugerencias por ahora.',
-      'Prompt Title': 'Título del Prompt',
-      'e.g. Cyberpunk Neon Portrait': 'e.g. Cyberpunk Neon Portrait',
-      'Suggest title': 'Sugerir título',
-      'My Library': 'Mi Biblioteca',
-      'Search in library...': 'Buscar en biblioteca...',
-      'Trash': 'Papelera',
-      'Date': 'Fecha',
-      'You haven\'t saved any prompts yet.': 'No has guardado ningún prompt todavía.',
-      'Click to rename': 'Click para renombrar',
-      'Reuse': 'Reutilizar',
-      'Sensitive Content': 'Contenido Sensible',
-      'You are trying to add a block that contains explicit or sensitive material (NSFW).': 'Estás intentando añadir un bloque que contiene material explícito o sensible (NSFW).',
-      'To use these blocks, you need to enable the "NSFW Allowed" switch at the top of the workspace.': 'Para poder utilizar estos bloques, necesitas habilitar el interruptor "NSFW Permitido" en la parte superior del área de trabajo.',
-      'Understood': 'Entendido',
-      'Enable NSFW': 'Habilitar NSFW',
-      'Search subcategory...': 'Buscar subcategoría...',
-      'Integrate Recreation': 'Integrar Recreación',
-      'Current Prompt (Prompting)': 'Prompt Actual (Prompting)',
-      'No current prompt...': 'No hay prompt actual...',
-      'Extracted Prompt (Recreation)': 'Prompt Extraído (Recreación)',
-      'Integration Options': 'Opciones de Integración',
-      'Image Recreation': 'Recreación de Imagen',
-      'Add (Combine)': 'Añadir (Combinar)',
-      'Adds the extracted prompt as a new block in the Scene Structure. The AI will mix it with your current prompt.': 'Añade el prompt extraído como un nuevo bloque en la Estructura de la Escena. La IA lo mezclará con tu prompt actual.',
-      'Recreation Details': 'Detalles de Recreación',
-      'Use Final Prompt parameters': 'Usar parámetros de Prompt Final',
-      'Adds the image as a secondary block. Maintains your current structure and only adds details that do not contradict what you already chose.': 'Añade la imagen como un bloque secundario. Mantiene tu estructura actual y solo añade detalles que no contradicen lo que ya elegiste.',
-      'Exact Recreation': 'Recreación Exacta',
-      'Use Recreation parameters': 'Usar parámetros de Recreación',
-      'Completely replaces your current structure with a single block containing the description of the uploaded image.': 'Reemplaza completamente tu estructura actual con un solo bloque que contiene la descripción de la imagen subida.',
-      'Clean Prompt': 'Limpiar Prompt',
-      'Select the elements you want to remove from the extracted prompt:': 'Selecciona los elementos que deseas eliminar del prompt extraído:',
-      'Tattoos': 'Tatuajes',
-      'Piercings': 'Piercings',
-      'Hair details (color, style)': 'Detalles del cabello (color, estilo)',
-      'Specific facial features': 'Rasgos faciales específicos',
-      'Specific clothing': 'Ropa específica',
-      'Background / Environment': 'Fondo / Ambientación',
-      'Deselect All': 'Deseleccionar Todo',
-      'Select All': 'Seleccionar Todo',
-      'active elements': 'elementos activos',
-      'Hi': 'Hola',
-      'Account': 'Cuenta',
-      'Connected as': 'Conectado como',
-      'Log in to save your progress': 'Inicia sesión para guardar tu progreso',
-      'Premium Plan': 'Plan Premium',
-      'Free Plan': 'Plan Gratis',
-      'Visual Theme': 'Tema Visual',
-      'Switch between dark and light mode': 'Cambia entre modo oscuro y claro',
-      'Change the application language': 'Cambia el idioma de la aplicación',
-      'Output language for generated prompts': 'Idioma de salida para prompts generados',
-      'Enable manual editing of the final prompt': 'Habilita la edición manual del prompt final',
-      'Preset layouts for the platform': 'Diseños preestablecidos para la plataforma',
-      'Modern (Default)': 'Moderno (Por defecto)',
-      'Glassmorphism': 'Glassmorphism',
-      'Accent Color': 'Color de Acento',
-      'Primary color of the interface': 'Color primario de la interfaz',
-      'Emerald (Default)': 'Esmeralda (Por defecto)',
-      'Blue': 'Azul',
-      'Purple': 'Púrpura',
-      'Rose': 'Rosa',
-      'Amber': 'Ámbar',
-      'Save and Apply': 'Guardar y Aplicar',
-      'Sign In with Google': 'Iniciar Sesión con Google',
-      'Restart Guided Tutorial': 'Reiniciar Tutorial Guiado',
-      'Prompts generated in this session. They will be cleared when you close the app.': 'Prompts generados en esta sesión. Se borrarán cuando cierres la aplicación.',
-      'No history in this session yet': 'No hay historial en esta sesión todavía',
-      'Clear Session History': 'Limpiar Historial de Sesión',
-      'Log Out': 'Cerrar Sesión',
-      'Categories': 'Categorías',
-      'Manage Categories and Prompts': 'Gestionar Categorías y Prompts',
-      'Custom Category': 'Categoría Personalizada',
-      'Back to top-level category': 'Volver a la categoría superior',
-      '(View More)': '(Ver más)',
-      'Character limit': 'Límite de caracteres',
-      'Code Generation': 'Generación de Código',
-      'Drag and drop an image here, or click to select.': 'Arrastra y suelta una imagen aquí, o haz clic para seleccionar.',
-      'Paste image URL here...': 'Pega la URL de la imagen aquí...',
-      'Generate variations of your current prompt by changing specific aspects.': 'Genera variaciones de tu prompt actual cambiando aspectos específicos.',
-      'No current prompt to vary. Go to the Prompting tab and create one.': 'No hay prompt actual para variar. Ve a la pestaña de Prompting y crea uno.',
-      'Ex: something dramatic...': 'Ej: algo dramático...',
-      'No current prompt. Go to the Prompting tab and create one.': 'No hay prompt actual. Ve a la pestaña de Prompting y crea uno.',
-      'Story Configuration': 'Configuración de la Historia',
-      'Ex: A heavy day at work, from waking up until returning home exhausted...': 'Ej: Un día pesado en el trabajo, desde que se levanta hasta que regresa a casa exhausto...',
-      'Number of prompts (Max 20):': 'Número de prompts (Max 20):',
-      'Final Prompt Position:': 'Posición del Prompt Final:',
-      'Automatic (Based on coherence)': 'Automático (Según coherencia)',
-      'Position': 'Posición',
-      'Explore prompts created by other users, get inspired and share your creations.': 'Explora prompts creados por otros usuarios, inspírate y comparte tus creaciones.',
-      'Search by title or prompt...': 'Buscar por título o prompt...',
-      'Most recent': 'Más recientes',
-      'Most popular': 'Más populares',
-      'Combine up to 6 images to generate unique and coherent prompts.': 'Combina hasta 6 imágenes para generar prompts únicos y coherentes.',
-      'Transmutation Results': 'Resultados de la Transmutación',
-      'Variation': 'Variación',
-      'No coworking topics yet.': 'No hay temas de coworking aún.',
-      'You': 'Tú',
-      'Wide field of view, ideal for landscapes or architecture. May distort edges.': 'Amplio campo de visión, ideal para paisajes o arquitectura. Puede distorsionar bordes.',
-      'The standard. Very versatile, ideal for half-body portraits and general use.': 'El estándar. Muy versátil, ideal para retratos de medio cuerpo y uso general.',
-      'Classic for portraits. Compresses the background and favors facial features.': 'Clásico para retratos. Comprime el fondo y favorece las facciones del rostro.',
-      'Captures a lot of information from the environment. Useful in closed spaces.': 'Captura mucha información del entorno. Útil en espacios cerrados.',
-      'Specific lens effect to alter the image aesthetics.': 'Efecto de lente específico para alterar la estética de la imagen.',
-      'Natural perspective, similar to human vision. Excellent for reportage and street.': 'Perspectiva natural, similar a la vista humana. Excelente para reportajes y calle.',
-      'Brings distant objects closer and compresses perspective significantly. Very blurred background.': 'Acerca objetos lejanos y comprime mucho la perspectiva. Fondo muy desenfocado.',
-      'Natural smartphone style, great depth of field, visible digital processing.': 'Estilo natural de smartphone, gran profundidad de campo, procesamiento digital visible.',
-      'Ocurrió un error al generar los prompts. Por favor, intenta de nuevo.': 'An error occurred while generating the prompts. Please try again.',
-      'Please upload at least one image.': 'Por favor, sube al menos una imagen.',
-      '¡Invitación recibida! {inviter} te ha invitado al tema: {topicTitle}': 'Invitation received! {inviter} has invited you to the topic: {topicTitle}',
-      'Celular ({model})': 'Smartphone ({model})',
-      'Generic model': 'Modelo genérico',
-      'Select File': 'Seleccionar Archivo',
-      'Or use a link': 'O usa un enlace',
-      'Load URL': 'Cargar URL',
-      'Got it': 'Entendido',
-      'Undo': 'Deshacer',
-      'More options': 'Más opciones',
-      'Account Settings': 'Ajustes de cuenta',
-      'Herramientas': 'Herramientas',
-      'Comunidad': 'Comunidad',
-      'Escena': 'Escena',
-      'Prompting General': 'Prompting General',
-      'Recreación': 'Recreación',
-      'Variaciones': 'Variaciones',
-      'Flow': 'Flow',
-      'Alquimia': 'Alquimia',
-      'Feed': 'Feed',
-      'Co-Working': 'Co-Working',
-      'Wide field of view, ideal for landscapes or architecture. May distort edges.': 'Campo de visión amplio, ideal para paisajes o arquitectura. Puede distorsionar los bordes.',
-      'Natural perspective, similar to human vision. Excellent for reportage and street.': 'Perspectiva natural, similar a la visión humana. Excelente para reportajes y calle.',
-      'The standard. Very versatile, ideal for half-body portraits and general use.': 'El estándar. Muy versátil, ideal para retratos de medio cuerpo y uso general.',
-      'Classic for portraits. Compresses the background and favors facial features.': 'Clásico para retratos. Comprime el fondo y favorece los rasgos faciales.',
-      'Brings distant objects closer and compresses perspective significantly. Very blurred background.': 'Acerca objetos distantes y comprime la perspectiva significativamente. Fondo muy desenfocado.',
-      'Captures a lot of information from the environment. Useful in closed spaces.': 'Captura mucha información del entorno. Útil en espacios cerrados.',
-      'Natural smartphone style, great depth of field, visible digital processing.': 'Estilo natural de smartphone, gran profundidad de campo, procesamiento digital visible.',
-      'Specific lens effect to alter the image aesthetics.': 'Efecto de lente específico para alterar la estética de la imagen.',
-      'Visual Categories': 'Categorías Visuales',
-      'Manage Categories and Prompts': 'Gestionar Categorías y Prompts',
-      'Custom Category': 'Categoría Personalizada',
-      'Click on the blocks to add them to your prompt.': 'Haz clic en los bloques para añadirlos a tu prompt.',
-      'Subcategories': 'Subcategorías',
-      'No items in this category': 'No hay elementos en esta categoría',
-      'Back to top-level category': 'Volver a la categoría principal',
-      '(View More)': '(Ver más)',
-      'Filter...': 'Filtrar...',
-      'Expand structure': 'Expandir estructura',
-      'Collapse structure': 'Contraer estructura',
-      'Expand': 'Expandir',
-      'Collapse': 'Contraer',
-      'Manage': 'Gestionar',
-      'Select blocks on the left or ask something in the chat to start.': 'Selecciona bloques a la izquierda o pregunta algo en el chat para empezar.',
-      'Custom': 'Personalizado',
-      // Category Labels from constants.ts
-      'Visual Result': 'Resultado Visual',
-      'Main Focus': 'Enfoque Principal',
-      'Scene Type': 'Tipo de Escena',
-      'Environment': 'Entorno',
-      'Action / Situation': 'Acción / Situación',
-      'Movement': 'Movimiento',
-      'Gesticulation': 'Gesticulación',
-      'Exposed Parts': 'Partes Expuestas',
-      'Camera / Angle': 'Cámara / Ángulo',
-      'Lens / Parameters': 'Lente / Parámetros',
-      'Lighting': 'Iluminación',
-      'Realism': 'Realismo',
-      'Outfit / Styling': 'Atuendo / Estilo',
-      'Makeup': 'Maquillaje',
-      'Palette / Color': 'Paleta / Color',
-      'Background & Props': 'Fondo y Accesorios',
-      'Intention': 'Intención',
-      'Body Details': 'Detalles del Cuerpo',
-      'Image Qualities': 'Calidades de Imagen',
-      'Restrictions': 'Restricciones',
-      'My Prompts': 'Mis Prompts',
-      'Artistic Style': 'Estilo Artístico',
-      'Main Subject': 'Sujeto Principal',
-      'Environment / Landscape': 'Entorno / Paisaje',
-      'Camera / Composition': 'Cámara / Composición',
-      'Atmosphere / Mood': 'Atmósfera / Estado de ánimo',
-      'Color Palette': 'Paleta de Colores',
-      'Detail Level': 'Nivel de Detalle',
-      // Influencer Blocks - Visual Result
-      'Casual spontaneous': 'Casual espontáneo',
-      'Natural selfie': 'Selfie natural',
-      'Magazine editorial': 'Editorial de revista',
-      'Professional studio': 'Estudio profesional',
-      'Cinematic': 'Cinematográfico',
-      'Aesthetic': 'Estético',
-      'Film grain': 'Grano de película',
-      'Product commercial': 'Comercial de producto',
-      'Intimate portrait': 'Retrato íntimo',
-      'Urban lifestyle': 'Estilo de vida urbano',
-      'Vintage polaroid': 'Polaroid vintage',
-      'Disposable camera': 'Cámara desechable',
-      'Street photography': 'Fotografía callejera',
-      'Haute couture': 'Alta costura',
-      'Dark fantasy': 'Fantasía oscura',
-      // Main Focus
-      'Selfie': 'Selfie',
-      'Face focus': 'Enfoque en la cara',
-      'Feet focus': 'Enfoque en los pies',
-      'Neck focus': 'Enfoque en el cuello',
-      'Environment focus': 'Enfoque en el entorno',
-      'Gesture focus': 'Enfoque en el gesto',
-      'Background interaction': 'Interacción con el fondo',
-      'Lips focus': 'Enfoque en los labios',
-      'Eyes focus': 'Enfoque en los ojos',
-      'Hands focus': 'Enfoque en las manos',
-      'Silhouette focus': 'Enfoque en la silueta',
-      // Scene Type
-      'In bedroom': 'En el dormitorio',
-      'In bed': 'En la cama',
-      'In kitchen': 'En la cocina',
-      'On the street': 'En la calle',
-      'At a concert': 'En un concierto',
-      'At school': 'En la escuela',
-      'Solid background': 'Fondo sólido',
-      'Contrast background': 'Fondo de contraste',
-      'Warm interior': 'Interior cálido',
-      'Everyday exterior': 'Exterior cotidiano',
-      'At the beach': 'En la playa',
-      'In the forest': 'En el bosque',
-      'In a cafe': 'En una cafetería',
-      'At the gym': 'En el gimnasio',
-      'In a bar': 'En un bar',
-      'On public transport': 'En transporte público',
-      'In a botanical garden': 'En un jardín botánico',
-      'In an old library': 'En una biblioteca antigua',
-      'On a rooftop': 'En una azotea',
-      'In an art studio': 'En un estudio de arte',
-      'In a shopping mall': 'En un centro comercial',
-      'At an amusement park': 'En un parque de atracciones',
-      'On a balcony': 'En un balcón',
-      'In an elevator': 'En un ascensor',
-      // Environment
-      'Dawn': 'Amanecer',
-      'Day': 'Día',
-      'Afternoon': 'Tarde',
-      'Night': 'Noche',
-      'Indoor variations': 'Variaciones de interior',
-      'Rainy': 'Lluvioso',
-      'Cloudy': 'Nublado',
-      'Snowy': 'Nevado',
-      'Dense fog': 'Niebla densa',
-      'Thunderstorm': 'Tormenta eléctrica',
-      'Purple sunset': 'Atardecer púrpura',
-      'Morning mist light': 'Luz de niebla matutina',
-      'Sweltering heat': 'Calor sofocante',
-      'Strong wind': 'Viento fuerte',
-      // Action / Situation
-      'Walking': 'Caminando',
-      'Posing alone': 'Posando sola',
-      'Eating': 'Comiendo',
-      'Hanging out with friends': 'Pasando el rato con amigos',
-      'Taking selfie': 'Tomando selfie',
-      'Showing product': 'Mostrando producto',
-      'Sitting resting': 'Sentada descansando',
-      'Interacting with object': 'Interactuando con objeto',
-      'Candid moment': 'Momento espontáneo',
-      'Dancing': 'Bailando',
-      'Reading a book': 'Leyendo un libro',
-      'Drinking coffee': 'Bebiendo café',
-      'Looking at phone': 'Mirando el teléfono',
-      'Adjusting hair': 'Ajustándose el pelo',
-      'Working out': 'Haciendo ejercicio',
-      'Listening to music': 'Escuchando música',
-      'Painting/Drawing': 'Pintando/Dibujando',
-      'Cooking': 'Cocinando',
-      'Talking on phone': 'Hablando por teléfono',
-      'Meditating': 'Meditando',
-      'Taking photos': 'Tomando fotos',
-      'Waiting for bus': 'Esperando el autobús',
-      'Applying makeup': 'Aplicándose maquillaje',
-      'Whispering': 'Susurrando',
-      // Movement
-      'Completely still': 'Completamente quieta',
-      'Walking (motion)': 'Caminando (movimiento)',
-      'Slight motion blur': 'Ligero desenfoque de movimiento',
-      'Heavy motion (running)': 'Movimiento pesado (corriendo)',
-      'Rotating angle': 'Ángulo de rotación',
-      'Zoom in/out': 'Zoom in/out',
-      'Light trails (night)': 'Estelas de luz (noche)',
-      'Hair in the wind': 'Pelo al viento',
-      'Clothes fluttering': 'Ropa ondeando',
-      'Jumping': 'Saltando',
-      'Free fall': 'Caída libre',
-      'Quick spin': 'Giro rápido',
-      // Gesticulation
-      'Matching expression': 'Expresión acorde',
-      'Believable hands': 'Manos creíbles',
-      'Natural posture': 'Postura natural',
-      'Looking at camera': 'Mirando a cámara',
-      'Looking away': 'Mirando hacia otro lado',
-      'Wide smile': 'Sonrisa amplia',
-      'Serious expression': 'Expresión seria',
-      'Wink': 'Guiño',
-      'Biting lip': 'Mordiéndose el labio',
-      'Surprise': 'Sorpresa',
-      'Subtle anger': 'Enojo sutil',
-      'Melancholic sadness': 'Tristeza melancólica',
-      'Uncontrollable laughter': 'Risa incontrolable',
-      'Boredom': 'Aburrimiento',
-      'Seduction': 'Seducción',
-      'Concentration': 'Concentración',
-      // Exposed Parts
-      'Visible arms': 'Brazos visibles',
-      'Abdomen (crop top)': 'Abdomen (crop top)',
-      'Visible legs': 'Piernas visibles',
-      'Visible thighs': 'Muslos visibles',
-      'Visible feet': 'Pies visibles',
-      'Visible hands': 'Manos visibles',
-      'Visible back': 'Espalda visible',
-      'Visible knees': 'Rodillas visibles',
-      'Visible shoulders': 'Hombros visibles',
-      'Visible elbows': 'Codos visibles',
-      'Visible neck': 'Cuello visible',
-      'Topless': 'Topless',
-      'Bottomless': 'Bottomless',
-      'Full nudity': 'Nude completo',
-      'Visible nipples': 'Pezones visibles',
-      'Visible vagina': 'Vagina visible',
-      'Visible penis': 'Pene visible',
-      'Exposed buttocks': 'Glúteos expuestos',
-      // Camera / Angle
-      'Close up': 'Primer plano',
-      'Medium shot': 'Plano medio',
-      'Full body': 'Cuerpo completo',
-      'High angle': 'Ángulo alto (Picado)',
-      'Low angle': 'Ángulo bajo (Contrapicado)',
-      'Selfie angle': 'Ángulo de selfie',
-      'Side angle': 'Ángulo lateral',
-      'Centered composition': 'Composición centrada',
-      'Paparazzi style': 'Estilo paparazzi',
-      'Bird\'s eye view': 'Vista de pájaro',
-      'Worm\'s eye view': 'Vista de gusano',
-      'Dutch angle': 'Ángulo holandés',
-      'Detail shot': 'Plano de detalle',
-      'From behind': 'Desde atrás',
-      'Over the shoulder': 'Sobre el hombro',
-      'Extreme wide shot': 'Gran plano general',
-      // Lenses / Parameters
-      '24mm': '24mm',
-      '35mm': '35mm',
-      '50mm': '50mm',
-      '85mm': '85mm',
-      'Telephoto': 'Teleobjetivo',
-      'Wide angle': 'Gran angular',
-      'f/1.8': 'f/1.8',
-      'Blurred background': 'Fondo desenfocado (Bokeh)',
-      'Studio sharpness': 'Nitidez de estudio',
-      'Fisheye': 'Ojo de pez',
-      'Anamorphic lens': 'Lente anamórfica',
-      'iPhone camera': 'Cámara de iPhone',
-      'Macro lens': 'Lente macro',
-      'Vintage filter': 'Filtro vintage',
-      // Lighting
-      'Natural light': 'Luz natural',
-      'Window light': 'Luz de ventana',
-      'Golden hour': 'Hora dorada',
-      'Artificial light': 'Luz artificial',
-      'Hard light': 'Luz dura',
-      'Soft light': 'Luz suave',
-      'Color neon': 'Neón de color',
-      'Backlighting': 'Contraluz',
-      'Editorial lighting': 'Iluminación editorial',
-      'Moonlight': 'Luz de luna',
-      'Candlelight': 'Luz de vela',
-      'Direct flash': 'Flash directo',
-      'Dramatic lighting': 'Iluminación dramática',
-      'Disco light': 'Luz de discoteca',
-      'Sunset light': 'Luz de atardecer',
-      'Volumetric light': 'Luz volumétrica',
-      // Realism
-      'Visible pores': 'Poros visibles',
-      'Natural texture': 'Textura natural',
-      'Micro-imperfections': 'Micro-imperfecciones',
-      'Subtle wrinkles': 'Arrugas sutiles',
-      'Real hair': 'Pelo real',
-      'Fabric folds': 'Pliegues de tela',
-      'Natural shadows': 'Sombras naturales',
-      'Realistic skin (body)': 'Piel realista (cuerpo)',
-      'Freckles and moles': 'Pecas y lunares',
-      'Light sweat': 'Sudor ligero',
-      'Subtle body hair': 'Vello corporal sutil',
-      'Subtle scars': 'Cicatrices sutiles',
-      'Visible veins': 'Venas visibles',
-      // Outfit / Styling
-      'Dark outfit': 'Atuendo oscuro',
-      'Streetwear': 'Streetwear',
-      'Casual': 'Casual',
-      'Elegant': 'Elegante',
-      'Minimalist': 'Minimalista',
-      'Black crop top': 'Crop top negro',
-      'Dress': 'Vestido',
-      'Tattoos': 'Tatuajes',
-      'Dark makeup': 'Maquillaje oscuro',
-      'Sportswear': 'Ropa deportiva',
-      'Swimsuit': 'Traje de baño',
-      'Lingerie': 'Lencería',
-      'Winter clothing': 'Ropa de invierno',
-      'Sunglasses': 'Gafas de sol',
-      'Transparent clothing': 'Ropa transparente',
-      'Gothic style': 'Estilo gótico',
-      'Leather clothing': 'Ropa de cuero',
-      'School uniform': 'Uniforme escolar',
-      'Pajamas': 'Pijama',
-      'Silk clothing': 'Ropa de seda',
-      // Makeup
-      'Natural / No-makeup': 'Natural / Sin maquillaje',
-      'E-girl': 'E-girl',
-      'Gloss only': 'Solo brillo',
-      'Graphic eyeliner': 'Delineado gráfico',
-      'Smokey eye': 'Ojo ahumado',
-      'Red lips': 'Labios rojos',
-      'Drag makeup': 'Maquillaje drag',
-      'Faux freckles': 'Pecas falsas',
-      'Neon eyeshadow': 'Sombra de ojos neón',
-      'Soft glam': 'Glamour suave',
-      'Euphoria style': 'Estilo Euphoria',
-      'Fantasy makeup': 'Maquillaje de fantasía',
-      // Palette / Color
-      'Neutrals': 'Neutrales',
-      'Darks': 'Oscuros',
-      'Warms': 'Cálidos',
-      'Colds': 'Fríos',
-      'Monochromatic': 'Monocromático',
-      'High contrast': 'Alto contraste',
-      'Red accents': 'Acentos rojos',
-      'Total black': 'Todo negro',
-      'Pastel tones': 'Tonos pastel',
-      'Black and white': 'Blanco y negro',
-      'High saturation': 'Alta saturación',
-      'Earth tones': 'Tonos tierra',
-      'Gold and black': 'Oro y negro',
-      'Electric blue': 'Azul eléctrico',
-      // Background and Props
-      'Circular rug': 'Alfombra circular',
-      'Mirror': 'Espejo',
-      'Posters': 'Pósteres',
-      'Messy bed': 'Cama desordenada',
-      'Warm lamp': 'Lámpara cálida',
-      'Smartphone': 'Smartphone',
-      'Props': 'Accesorios',
-      'Indoor plants': 'Plantas de interior',
-      'Coffee mug': 'Taza de café',
-      'Stacked books': 'Libros apilados',
-      'Musical instrument': 'Instrumento musical',
-      'Sports car': 'Coche deportivo',
-      'Open laptop': 'Portátil abierto',
-      'Large headphones': 'Auriculares grandes',
-      'Vintage camera': 'Cámara vintage',
-      'Pet (dog/cat)': 'Mascota (perro/gato)',
-      'Fast food': 'Comida rápida',
-      'Energy drink': 'Bebida energética',
-      'Backpack': 'Mochila',
-      'Skateboard': 'Monopatín',
-      // Intention
-      'For social media': 'Para redes sociales',
-      'For brand': 'Para marca',
-      'Casual campaign': 'Campaña casual',
-      'Aspirational image': 'Imagen aspiracional',
-      'Lookbook': 'Lookbook',
-      'Documentary photography': 'Fotografía documental',
-      'Conceptual art': 'Arte conceptual',
-      'Movie poster': 'Póster de película',
-      // Body Details
-      'Height: Tall': 'Altura: Alta',
-      'Height: Average': 'Altura: Promedio',
-      'Height: Short': 'Altura: Baja',
-      'Long legs': 'Piernas largas',
-      'Bust size': 'Tamaño de busto',
-      'Porcelain skin': 'Piel de porcelana',
-      'Moisturized skin': 'Piel hidratada',
-      'Dry skin': 'Piel seca',
-      'Natural/Healthy skin': 'Piel natural/saludable',
-      'Natural redness (Feet)': 'Enrojecimiento natural (Pies)',
-      'Natural redness (Knees)': 'Enrojecimiento natural (Rodillas)',
-      'Natural redness (Cheeks)': 'Enrojecimiento natural (Mejillas)',
-      'Birthmark detail': 'Detalle de marca de nacimiento',
-      'Tanned skin': 'Piel bronceada',
-      'Freckled skin (body)': 'Piel con pecas (cuerpo)',
-      'Athletic build': 'Constitución atlética',
-      'Slender build': 'Constitución esbelta',
-      'Curvy build': 'Constitución con curvas',
-      'Pale skin': 'Piel pálida',
-      'Brown skin': 'Piel morena',
-      'Dark skin': 'Piel oscura',
-      'Subtle veins': 'Venas sutiles',
-      'Body: Hourglass': 'Cuerpo: Reloj de arena',
-      'Body: Pear': 'Cuerpo: Pera',
-      'Body: Rectangular': 'Cuerpo: Rectangular',
-      'Legs: Muscular': 'Piernas: Musculosas',
-      'Legs: Slender': 'Piernas: Esbeltas',
-      'Feet: High arches': 'Pies: Arcos altos',
-      'Feet: Painted nails': 'Pies: Uñas pintadas',
-      'Feet: Pinkish soles': 'Pies: Plantas rosadas',
-      'Detail: Prominent collarbones': 'Detalle: Clavículas prominentes',
-      'Detail: Defined back': 'Detalle: Espalda definida',
-      'Detail: Delicate hands': 'Detalle: Manos delicadas',
-      'Detail: Long neck': 'Detalle: Cuello largo',
-      'Skin: Subtle body hair': 'Piel: Vello corporal sutil',
-      'Skin: Stretch marks': 'Piel: Estrías',
-      'Skin: Cellulite': 'Piel: Celulitis',
-      // Image Quality
-      'Low Quality': 'Baja Calidad',
-      'Medium Quality': 'Calidad Media',
-      'High Quality': 'Alta Calidad',
-      '4K': '4K',
-      '8K': '8K',
-      'Perfect Plastic Skin': 'Piel de plástico perfecta',
-      'Realistic HD': 'HD Realista',
-      'Raw Photo': 'Foto Raw',
-      // Restrictions / Negatives
-      'Avoid deformed hands': 'Evitar manos deformes',
-      'Avoid overprocessed look': 'Evitar aspecto sobreprocesado',
-      'Avoid plastic skin': 'Evitar piel de plástico',
-      'Avoid impossible poses': 'Evitar poses imposibles',
-      'Avoid empty expressions': 'Evitar expresiones vacías',
-      'Avoid text': 'Evitar texto',
-      'Avoid facial asymmetry': 'Evitar asimetría facial',
-      'Avoid censorship': 'Evitar censura',
-      // General Blocks - Artistic Style
-      'Realistic Photography': 'Fotografía Realista',
-      'Digital Illustration': 'Ilustración Digital',
-      'Oil Painting': 'Pintura al Óleo',
-      'Concept Art': 'Arte de Concepto',
-      'Cyberpunk': 'Cyberpunk',
-      'Steampunk': 'Steampunk',
-      'Watercolor': 'Acuarela',
-      'Anime / Manga': 'Anime / Manga',
-      'Low Poly / 3D': 'Low Poly / 3D',
-      // Main Subject
-      'Modern Architecture': 'Arquitectura Moderna',
-      'Futuristic Vehicle': 'Vehículo Futurista',
-      'Fantastic Creature': 'Criatura Fantástica',
-      'Everyday Object': 'Objeto Cotidiano',
-      'Food / Drink': 'Comida / Bebida',
-      'Ancient Ruins': 'Ruinas Antiguas',
-      'Spaceship': 'Nave Espacial',
-      // Environment / Landscape
-      'Futuristic City': 'Ciudad Futurista',
-      'Magical Forest': 'Bosque Mágico',
-      'Desert': 'Desierto',
-      'Snowy Mountains': 'Montañas Nevadas',
-      'Underwater Background': 'Fondo Subacuático',
-      'Outer Space': 'Espacio Exterior',
-      'Cozy Interior': 'Interior Acogedor',
-      // Lighting
-      'Natural Light (Day)': 'Luz Natural (Día)',
-      'Golden Hour': 'Hora Dorada',
-      'Studio Lighting': 'Iluminación de Estudio',
-      'Neon Light': 'Luz de Neón',
-      'Moonlight': 'Luz de Luna',
-      'Volumetric Light': 'Luz Volumétrica',
-      'Low Key Lighting': 'Iluminación en Clave Baja',
-      // Camera / Composition
-      'Wide Shot': 'Plano General',
-      'Close Up': 'Primer Plano',
-      'Bird\'s Eye View': 'Vista de Pájaro',
-      'Worm\'s Eye View': 'Vista de Gusano',
-      'Symmetry': 'Simetría',
-      'Rule of Thirds': 'Regla de los Tercios',
-      'Depth of Field': 'Profundidad de Campo',
-      // Atmosphere / Mood
-      'Epic / Majestic': 'Épico / Majestuoso',
-      'Mysterious / Dark': 'Misterioso / Oscuro',
-      'Quiet / Peaceful': 'Tranquilo / Pacífico',
-      'Chaotic / Dynamic': 'Caótico / Dinámico',
-      'Melancholic': 'Melancólico',
-      'Cheerful / Vibrant': 'Alegre / Vibrante',
-      // Color Palette
-      'Pastel Colors': 'Colores Pastel',
-      'Black and White': 'Blanco y Negro',
-      'Warm Tones': 'Tonos Cálidos',
-      'Cool Tones': 'Tonos Fríos',
-      'High Contrast': 'Alto Contraste',
-      'Earth Tones': 'Tonos Tierra',
-      // Detail Level
-      'Ultra Detailed': 'Ultra Detallado',
-      'Minimalist': 'Minimalista',
-      'Abstract': 'Abstracto',
-      'Textured': 'Texturizado',
-      // Image Qualities (General)
-      'Low Quality': 'Baja Calidad',
-      'Medium Quality': 'Calidad Media',
-      'High Quality': 'Alta Calidad',
-      '4K': '4K',
-      '8K': '8K',
-      'Perfect Plastic Skin': 'Piel de Plástico Perfecta',
-      'Masterpiece': 'Obra Maestra',
-      'HDR': 'HDR',
-      // Category and Prompt Manager
-      'Content Manager': 'Gestor de Contenido',
-      'Prompts': 'Prompts',
-      'Categories': 'Categorías',
-      'Search...': 'Buscar...',
-      'Prompt Folders': 'Carpetas de Prompts',
-      'New Folder': 'Nueva Carpeta',
-      'All Prompts': 'Todos los Prompts',
-      'Base Categories': 'Categorías Base',
-      'My Categories': 'Mis Categorías',
-      'My Saved Prompts': 'Mis Prompts Guardados',
-      'Category Details': 'Detalles de la Categoría',
-      'My Custom Categories': 'Mis Categorías Personalizadas',
-      'Showing {n} prompts': 'Mostrando {n} prompts',
-      'Manage items and subcategories': 'Gestionar elementos y subcategorías',
-      'Showing {n} custom categories': 'Mostrando {n} categorías personalizadas',
-      'Add Item': 'Añadir Elemento',
-      'Add {type}': 'Añadir {type}',
-      'Items / Variants': 'Elementos / Variantes',
-      'Base': 'Base',
-      'Subcategories / Folders': 'Subcategorías / Carpetas',
-      'New Subcategory': 'Nueva Subcategoría',
-      'Top-level category': 'Categoría de nivel superior',
-      'Edit Category': 'Editar Categoría',
-      'Add Category': 'Añadir Categoría',
-      'Name': 'Nombre',
-      'e.g. My Style': 'ej. Mi Estilo',
-      'Parent Category (Optional)': 'Categoría Padre (Opcional)',
-      'None (Top-level)': 'Ninguna (Nivel superior)',
-      'Icon': 'Icono',
-      'Save Category': 'Guardar Categoría',
-      'Edit Item': 'Editar Elemento',
-      'Label': 'Etiqueta',
-      'e.g. Cinematic Lighting': 'ej. Iluminación Cinematográfica',
-      'Prompt Text': 'Texto del Prompt',
-      'The text that will be added to the prompt...': 'El texto que se añadirá al prompt...',
-      'Mark if this item contains adult content': 'Marcar si este elemento contiene contenido para adultos',
-      'Save Item': 'Guardar Elemento',
-      'Edit Prompt': 'Editar Prompt',
-      'Add Prompt': 'Añadir Prompt',
-      'e.g. Hyper-realistic Portrait': 'ej. Retrato Hiperrealista',
-      'Content': 'Contenido',
-      'Write your prompt here...': 'Escribe tu prompt aquí...',
-      'Folder': 'Carpeta',
-      'No Folder': 'Sin Carpeta',
-      'Save Prompt': 'Guardar Prompt',
-      'Delete Category': 'Eliminar Categoría',
-      'Delete Folder': 'Eliminar Carpeta',
-      'Delete Prompt': 'Eliminar Prompt',
-      'Delete Item': 'Eliminar Elemento',
-      'Are you sure you want to delete this category?': '¿Estás seguro de que quieres eliminar esta categoría?',
-      'All blocks inside will also be deleted.': 'Todos los bloques en su interior también serán eliminados.',
-      'Are you sure you want to delete this folder?': '¿Estás seguro de que quieres eliminar esta carpeta?',
-      'The prompts inside will not be deleted, but will lose their association.': 'Los prompts en su interior no serán eliminados, pero perderán su asociación.',
-      'Are you sure you want to delete this item?': '¿Estás seguro de que quieres eliminar este elemento?',
-      'This action cannot be undone.': 'Esta acción no se puede deshacer.',
-      'Are you sure you want to delete this prompt?': '¿Estás seguro de que quieres eliminar este prompt?',
-      'Title': 'Título',
-      'NSFW Content': 'Contenido NSFW',
-      'Cancel': 'Cancelar',
-      'Prompt': 'Prompt',
-      'Category': 'Categoría',
-      'Custom': 'Personalizado',
-      'Invitation received! {inviter} invited you to the topic: {topicTitle}': '¡Invitación recibida! {inviter} te ha invitado al tema: {topicTitle}',
-      'Copied successfully to clipboard': 'Copiado exitosamente en el portapapeles',
-      'Please upload at least one image.': 'Por favor, sube al menos una imagen.',
-      'An error occurred while generating prompts. Please try again.': 'Ocurrió un error al generar los prompts. Por favor, intenta de nuevo.',
-      'Prompt {n}': 'Prompt {n}',
-      'Could not extract prompt from image.': 'No se pudo extraer el prompt de la imagen.',
-      'An error occurred while analyzing the image.': 'Ocurrió un error al analizar la imagen.',
-      'Personalize your SceneCraft AI experience': 'Personaliza tu experiencia en SceneCraft AI',
-      'Hi': 'Hola',
-      'Account': 'Cuenta',
-      'Connected as': 'Conectado como',
-      'Log in to save your progress': 'Inicia sesión para guardar tu progreso',
-      'Premium Plan': 'Plan Premium',
-      'Free Plan': 'Plan Gratuito',
-      'Log Out': 'Cerrar Sesión',
-      'Visual Theme': 'Tema Visual',
-      'Switch between dark and light mode': 'Cambiar entre modo oscuro y claro',
-      'Dark': 'Oscuro',
-      'Light': 'Claro',
-      'Allow explicit blocks and terms': 'Permitir bloques y términos explícitos',
-      'Interface Language': 'Idioma de la Interfaz',
-      'Change the application language': 'Cambiar el idioma de la aplicación',
-      'Prompt Language': 'Idioma del Prompt',
-      'Output language for generated prompts': 'Idioma de salida para los prompts generados',
-      'Manual Generation': 'Generación Manual',
-      'Enable manual editing of the final prompt': 'Habilitar edición manual del prompt final',
-      'UI Style': 'Estilo de UI',
-      'Preset layouts for the platform': 'Diseños preestablecidos para la plataforma',
-      'Modern (Default)': 'Moderno (Predeterminado)',
-      'Glassmorphism': 'Glassmorphism',
-      'Brutalist': 'Brutalista',
-      'Accent Color': 'Color de Acento',
-      'Primary color of the interface': 'Color primario de la interfaz',
-      'Emerald (Default)': 'Esmeralda (Predeterminado)',
-      'Blue': 'Azul',
-      'Purple': 'Púrpura',
-      'Rose': 'Rosa',
-      'Amber': 'Ámbar',
-      'Save and Apply': 'Guardar y Aplicar',
-      'Sign In with Google': 'Iniciar Sesión con Google',
-      'Save': 'Guardar',
-      'My Library': 'Mi Biblioteca',
-      'Account Settings': 'Ajustes de Cuenta',
-      'Admin Panel': 'Panel de Administración',
-      'Admin': 'Admin',
-      'Wide field of view, ideal for landscapes or architecture. May distort edges.': 'Campo de visión amplio, ideal para paisajes o arquitectura. Puede distorsionar los bordes.',
-      'Natural perspective, similar to human vision. Excellent for reportage and street.': 'Perspectiva natural, similar a la visión humana. Excelente para reportajes y calle.',
-      'The standard. Very versatile, ideal for half-body portraits and general use.': 'El estándar. Muy versátil, ideal para retratos de medio cuerpo y uso general.',
-      'Classic for portraits. Compresses the background and favors facial features.': 'Clásico para retratos. Comprime el fondo y favorece los rasgos faciales.',
-      'Brings distant objects closer and compresses perspective significantly. Very blurred background.': 'Acerca los objetos distantes y comprime significativamente la perspectiva. Fondo muy desenfocado.',
-      'Captures a lot of information from the environment. Useful in closed spaces.': 'Captura mucha información del entorno. Útil en espacios cerrados.',
-      'Natural smartphone style, great depth of field, visible digital processing.': 'Estilo natural de smartphone, gran profundidad de campo, procesamiento digital visible.',
-      'Specific lens effect to alter the image aesthetics.': 'Efecto de lente específico para alterar la estética de la imagen.',
-      'Visual Categories': 'Categorías Visuales',
-      'Manage Categories and Prompts': 'Gestionar Categorías y Prompts',
-      'Custom Category': 'Categoría Personalizada',
-      'Click on the blocks to add them to your prompt.': 'Haz clic en los bloques para añadirlos a tu prompt.',
-      'Subcategories': 'Subcategorías',
-      'Items': 'Elementos',
-      'Manage': 'Gestionar',
-      'No items in this category': 'No hay elementos en esta categoría',
-      'Back to top-level category': 'Volver a la categoría principal',
-      '(View More)': '(Ver más)',
-      'Filter...': 'Filtrar...',
-      'NEWS:': 'NOTICIAS:',
-      'Scene Structure': 'Estructura de la Escena',
-      'Expand structure': 'Expandir estructura',
-      'Collapse structure': 'Contraer estructura',
-      'Expand': 'Expandir',
-      'Collapse': 'Contraer',
-      'Select blocks on the left or ask something in the chat to start.': 'Selecciona bloques a la izquierda o pregunta algo en el chat para comenzar.',
-      'Prompt Final': 'Prompt Final',
-      'Magic Enhance (AI)': 'Mejora Mágica (IA)',
-      'Limit': 'Límite',
-      'Character limit': 'Límite de caracteres',
-      'Optimize for limit': 'Optimizar para el límite',
-      'GENERATE NOW': 'GENERAR AHORA',
-      'Editing banned words': 'Editando palabras prohibidas',
-      'Compiling...': 'Compilando...',
-      'Switch to Auto Generation': 'Cambiar a Generación Automática',
-      'Switch to Manual Generation': 'Cambiar a Generación Manual',
-      'Manual': 'Manual',
-      'Auto': 'Auto',
-      'AI Target (Optimization)': 'Objetivo de IA (Optimización)',
-      'Code Generation': 'Generación de Código',
-      'Session History (Temporary)': 'Historial de Sesión (Temporal)',
-      'Session History': 'Historial de Sesión',
-      'The generated prompt will appear here...': 'El prompt generado aparecerá aquí...',
-      'View highlighted': 'Ver resaltado',
-      'Edit plain text': 'Editar texto plano',
-      'Copy prompt': 'Copiar prompt',
-      'Ex: Make it more casual, change to neon light, add a mirror...': 'Ej: Hazlo más casual, cambia a luz de neón, añade un espejo...',
-      'Image Recreation': 'Recreación de Imagen',
-      'Upload a reference image to extract a detailed prompt.': 'Sube una imagen de referencia para extraer un prompt detallado.',
-      'Change Image': 'Cambiar Imagen',
-      'Analyzing...': 'Analizando...',
-      'Analyzed': 'Analizado',
-      'Extract Prompt': 'Extraer Prompt',
-      'Extracted Prompt': 'Prompt Extraído',
-      'Clean Prompt': 'Limpiar Prompt',
-      'Revert': 'Revertir',
-      'Save Style': 'Guardar Estilo',
-      'Integrate into Scene': 'Integrar en la Escena',
-      'Prompt Variations': 'Variaciones de Prompt',
-      'Generate variations of your current prompt by changing specific aspects.': 'Genera variaciones de tu prompt actual cambiando aspectos específicos.',
-      'Back to Prompting': 'Volver a Prompting',
-      'No current prompt to vary. Go to the Prompting tab and create one.': 'No hay un prompt actual para variar. Ve a la pestaña de Prompting y crea uno.',
-      'Change Pose': 'Cambiar Pose',
-      'Change Lighting': 'Cambiar Iluminación',
-      'Change Environment': 'Cambiar Entorno',
-      'Change Style': 'Cambiar Estilo',
-      'Change Clothing': 'Cambiar Ropa',
-      'Change Expression': 'Cambiar Expresión',
-      'Change Weather': 'Cambiar Clima',
-      'Change Time of Day': 'Cambiar Hora del Día',
-      'Change Camera Angle': 'Cambiar Ángulo de Cámara',
-      'Change Color Palette': 'Cambiar Paleta de Colores',
-      'Add Element': 'Añadir Elemento',
-      'Remove Element': 'Eliminar Elemento',
-      'Change Age': 'Cambiar Edad',
-      'Change Era': 'Cambiar Época',
-      'Change General Emotion': 'Cambiar Emoción General',
-      'Ex: something dramatic...': 'Ej: algo dramático...',
-      'Apply': 'Aplicar',
-      'Prompt Flow (Storytelling)': 'Flujo de Prompts (Storytelling)',
-      'Create a story or sequence of events based on your current prompt.': 'Crea una historia o secuencia de eventos basada en tu prompt actual.',
-      'No current prompt. Go to the Prompting tab and create one.': 'No hay un prompt actual. Ve a la pestaña de Prompting y crea uno.',
-      'Story Configuration': 'Configuración de la Historia',
-      'Describe the story or general context:': 'Describe la historia o el contexto general:',
-      'Ex: A heavy day at work, from waking up until returning home exhausted...': 'Ej: Un día pesado en el trabajo, desde despertar hasta volver a casa agotado...',
-      'Number of prompts (Max 20):': 'Número de prompts (Máx 20):',
-      'Final Prompt Position:': 'Posición del Prompt Final:',
-      'Automatic (Based on coherence)': 'Automático (Basado en coherencia)',
-      'Position': 'Posición',
-      'Generating Flow...': 'Generando Flujo...',
-      'Generate Story': 'Generar Historia',
-      'Escena': 'Escena',
-      'Prompting General': 'Prompting General',
-      'Recreación': 'Recreación',
-      'Variaciones': 'Variaciones',
-      'Flow': 'Flow',
-      'Alquimia': 'Alquimia',
-      'Feed': 'Feed',
-      'Co-Working': 'Co-Working',
-    },
-    // Add other languages as needed
-  };
 
   const t = (key: string) => {
     if (language === 'en') return key;
@@ -1679,12 +475,16 @@ export default function App() {
   // My Prompts State
   const [savedPrompts, setSavedPrompts] = useState<SavedPrompt[]>([]);
   const [promptFolders, setPromptFolders] = useState<PromptFolder[]>([]);
-  const [copyToast, setCopyToast] = useState<{show: boolean, message: string}>({show: false, message: ''});
+  const [toast, setToast] = useState<{show: boolean, message: string, type?: 'success' | 'info' | 'error'}>({show: false, message: ''});
+  
+  const showToast = (message: string, type: 'success' | 'info' | 'error' = 'success') => {
+    setToast({show: true, message, type});
+    setTimeout(() => setToast({show: false, message: '', type: 'success'}), 3000);
+  };
 
   const handleCopyPrompt = (text: string) => {
     navigator.clipboard.writeText(text);
-    setCopyToast({show: true, message: t('Copied successfully to clipboard')});
-    setTimeout(() => setCopyToast({show: false, message: ''}), 3000);
+    showToast(t('Copied successfully to clipboard'));
   };
 
   const handleAlquimiaGenerate = async () => {
@@ -1822,8 +622,6 @@ export default function App() {
   const [manualPromptReady, setManualPromptReady] = useState(false);
 
   // Admin & User State
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [isAuthReady, setIsAuthReady] = useState(false);
   const [deletedPrompts, setDeletedPrompts] = useState<PromptSession[]>([]);
   const [showRecycleBin, setShowRecycleBin] = useState(false);
   
@@ -1970,8 +768,7 @@ export default function App() {
     });
 
     newSocket.on('invitation-received', (data) => {
-      // Show a simple alert for now, could be a toast
-      alert(t('Invitation received! {inviter} invited you to the topic: {topicTitle}').replace('{inviter}', data.inviter).replace('{topicTitle}', data.topicTitle));
+      showToast(t('Invitation received! {inviter} invited you to the topic: {topicTitle}').replace('{inviter}', data.inviter).replace('{topicTitle}', data.topicTitle), 'info');
     });
 
     return () => {
@@ -2005,6 +802,7 @@ export default function App() {
       const userRef = doc(db, 'users', currentUser.uid);
       await updateDoc(userRef, { 
         displayName: newName,
+        hashtag: hashtag,
         updatedAt: serverTimestamp()
       });
     } catch (error) {
@@ -2465,8 +1263,7 @@ export default function App() {
 
     setShowSaveHistoryModal(false);
     setSaveHistoryTitle('');
-    setCopyToast({ show: true, message: 'Saved to Library!' });
-    setTimeout(() => setCopyToast({ show: false, message: '' }), 3000);
+    showToast(t('Saved to Library!'));
   };
 
   const confirmSmartphoneModel = () => {
@@ -2746,13 +1543,13 @@ export default function App() {
             onClick={() => { setActiveTabGroup('tools'); setWorkMode('influencer'); }}
             className={`px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all shrink-0 ${activeTabGroup === 'tools' ? 'bg-emerald-500 text-black shadow-lg shadow-emerald-500/20' : 'text-zinc-500 hover:text-zinc-300'}`}
           >
-            {t('Herramientas')}
+            {t('Tools')}
           </button>
           <button 
             onClick={() => { setActiveTabGroup('community'); setWorkMode('community'); }}
             className={`px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all shrink-0 ${activeTabGroup === 'community' ? 'bg-emerald-500 text-black shadow-lg shadow-emerald-500/20' : 'text-zinc-500 hover:text-zinc-300'}`}
           >
-            {t('Comunidad')}
+            {t('Community')}
           </button>
           {currentUser?.isAdmin && (
             <button 
@@ -2769,12 +1566,12 @@ export default function App() {
           <div className="flex items-center gap-2 shrink-0">
             {activeTabGroup === 'tools' && (
               <>
-                <button onClick={() => setWorkMode('influencer')} className={`px-3 py-1 text-[10px] md:text-xs font-semibold rounded-md transition-colors shrink-0 ${workMode === 'influencer' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'text-zinc-400 hover:text-blue-300'}`}>{t('Escena')}</button>
-                <button onClick={() => setWorkMode('prompting')} className={`px-3 py-1 text-[10px] md:text-xs font-semibold rounded-md transition-colors shrink-0 ${workMode === 'prompting' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'text-zinc-400 hover:text-blue-300'}`}>{t('Prompting General')}</button>
-                <button onClick={() => setWorkMode('recreation')} className={`px-3 py-1 text-[10px] md:text-xs font-semibold rounded-md transition-colors shrink-0 ${workMode === 'recreation' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'text-zinc-400 hover:text-blue-300'}`}>{t('Recreación')}</button>
-                <button onClick={() => setWorkMode('variations')} className={`px-3 py-1 text-[10px] md:text-xs font-semibold rounded-md transition-colors shrink-0 ${workMode === 'variations' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'text-zinc-400 hover:text-blue-300'}`}>{t('Variaciones')}</button>
+                <button onClick={() => setWorkMode('influencer')} className={`px-3 py-1 text-[10px] md:text-xs font-semibold rounded-md transition-colors shrink-0 ${workMode === 'influencer' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'text-zinc-400 hover:text-blue-300'}`}>{t('Scene')}</button>
+                <button onClick={() => setWorkMode('prompting')} className={`px-3 py-1 text-[10px] md:text-xs font-semibold rounded-md transition-colors shrink-0 ${workMode === 'prompting' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'text-zinc-400 hover:text-blue-300'}`}>{t('General Prompting')}</button>
+                <button onClick={() => setWorkMode('recreation')} className={`px-3 py-1 text-[10px] md:text-xs font-semibold rounded-md transition-colors shrink-0 ${workMode === 'recreation' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'text-zinc-400 hover:text-blue-300'}`}>{t('Recreation')}</button>
+                <button onClick={() => setWorkMode('variations')} className={`px-3 py-1 text-[10px] md:text-xs font-semibold rounded-md transition-colors shrink-0 ${workMode === 'variations' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'text-zinc-400 hover:text-blue-300'}`}>{t('Variations')}</button>
                 <button onClick={() => setWorkMode('flow')} className={`px-3 py-1 text-[10px] md:text-xs font-semibold rounded-md transition-colors shrink-0 ${workMode === 'flow' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'text-zinc-400 hover:text-blue-300'}`}>{t('Flow')}</button>
-                <button onClick={() => setWorkMode('alquimia')} className={`px-3 py-1 text-[10px] md:text-xs font-semibold rounded-md transition-colors shrink-0 ${workMode === 'alquimia' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'text-zinc-400 hover:text-blue-300'}`}>{t('Alquimia')}</button>
+                <button onClick={() => setWorkMode('alquimia')} className={`px-3 py-1 text-[10px] md:text-xs font-semibold rounded-md transition-colors shrink-0 ${workMode === 'alquimia' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'text-zinc-400 hover:text-blue-300'}`}>{t('Alchemy')}</button>
               </>
             )}
             {activeTabGroup === 'community' && (
@@ -2787,7 +1584,7 @@ export default function App() {
                   }} 
                   className={`px-3 py-1 text-[10px] md:text-xs font-semibold rounded-md transition-colors shrink-0 ${workMode === 'coworking' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' : 'text-zinc-400 hover:text-orange-300'}`}
                 >
-                  {t('Co-Working')}
+                  {t('Coworking')}
                 </button>
               </>
             )}
@@ -3309,55 +2106,6 @@ export default function App() {
                         {t('Compiling...')}
                       </div>
                     )}
-                    
-                    {/* Generation Mode Toggle */}
-                    <button 
-                      onClick={() => {
-                        const newValue = !isManualGeneration;
-                        setIsManualGeneration(newValue);
-                        localStorage.setItem('scenecraft_manual_gen', JSON.stringify(newValue));
-                      }}
-                      className={`flex items-center gap-2 px-2 py-1 rounded border transition-all ${
-                        isManualGeneration 
-                          ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/20' 
-                          : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'
-                      }`}
-                      title={isManualGeneration ? t('Switch to Auto Generation') : t('Switch to Manual Generation')}
-                    >
-                      <div className={`w-1.5 h-1.5 rounded-full ${isManualGeneration ? 'bg-amber-400' : 'bg-emerald-400'}`} />
-                      <span className="text-[10px] font-bold uppercase tracking-wider">
-                        {isManualGeneration ? t('Manual') : t('Auto')}
-                      </span>
-                    </button>
-
-                    {/* IA Target Dropdown */}
-                    <div className="flex items-center gap-2 bg-zinc-900/50 px-2 py-1 rounded border border-white/5">
-                      <Icons.Settings size={12} className="text-zinc-500" />
-                      <select 
-                        value={targetModel}
-                        onChange={(e) => {
-                          setTargetModel(e.target.value);
-                          localStorage.setItem('scenecraft_target_model', e.target.value);
-                        }}
-                        className="bg-transparent text-[10px] text-zinc-300 font-bold focus:outline-none uppercase tracking-wider"
-                        title={t('AI Target (Optimization)')}
-                      >
-                        <option value="scenecraft">SceneCraft Soul</option>
-                        <option value="midjourney">Midjourney (V6+)</option>
-                        <option value="stable-diffusion">Stable Diffusion (XL/3)</option>
-                        <option value="dalle-3">DALL-E 3</option>
-                        <option value="flux">Flux.1 (Pro/Dev)</option>
-                        <option value="nanobanana">Nanobanana Pro</option>
-                        <option value="novelai">NovelAI.net</option>
-                        <option value="chatgpt">ChatGPT (Vision)</option>
-                        <option value="ideogram">Ideogram</option>
-                        <option value="firefly">Adobe Firefly</option>
-                        <option value="leonardo">Leonardo AI</option>
-                        <option value="krea">Krea.ai</option>
-                        <option value="starryai">StarryAI</option>
-                        <option value="code">{t('Code Generation')}</option>
-                      </select>
-                    </div>
 
                     <button 
                       onClick={() => setShowSessionHistory(true)}
@@ -4360,28 +3108,75 @@ export default function App() {
                                 <span className="text-zinc-600 italic text-xs">Propietario</span>
                               </td>
                             </tr>
-                            {/* Mock users for demonstration */}
-                            {[1, 2, 3].map(i => (
-                              <tr key={i} className="group hover:bg-white/[0.02] transition-colors">
+                            {allUsers.filter(u => u.uid !== currentUser?.uid).map(user => (
+                              <tr key={user.uid} className="group hover:bg-white/[0.02] transition-colors">
                                 <td className="py-4">
                                   <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-full bg-zinc-800" />
+                                    <div className="w-8 h-8 rounded-full bg-zinc-800 overflow-hidden">
+                                      {user.photoURL ? (
+                                        <img src={user.photoURL} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                      ) : (
+                                        <div className="w-full h-full flex items-center justify-center text-zinc-600">
+                                          <Icons.User size={14} />
+                                        </div>
+                                      )}
+                                    </div>
                                     <div>
-                                      <div className="font-medium text-white">usuario_{i}@ejemplo.com</div>
-                                      <div className="text-[10px] text-zinc-500 uppercase font-bold">{t('Standard User')}</div>
+                                      <div className="font-medium text-white">{user.displayName}#{user.hashtag}</div>
+                                      <div className="text-[10px] text-zinc-500 uppercase font-bold">{user.email}</div>
                                     </div>
                                   </div>
                                 </td>
                                 <td className="py-4">
-                                  <span className="bg-zinc-800 text-zinc-500 text-[10px] font-bold px-2 py-0.5 rounded-full">Gratis</span>
+                                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                    user.plan === 'premium' || user.isSubscribed ? 'bg-emerald-500/20 text-emerald-400' : 'bg-zinc-800 text-zinc-500'
+                                  }`}>
+                                    {user.plan === 'premium' || user.isSubscribed ? t('Premium') : t('Free')}
+                                  </span>
                                 </td>
-                                <td className="py-4 text-zinc-400">0/2</td>
+                                <td className="py-4 text-zinc-400">{user.freePromptsUsed || 0}</td>
                                 <td className="py-4 text-right">
                                   <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button className="p-1.5 text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-colors" title={t('Gift Subscription')}>
+                                    <button 
+                                      onClick={async () => {
+                                        try {
+                                          const userRef = doc(db, 'users', user.uid);
+                                          await updateDoc(userRef, { 
+                                            isSubscribed: !user.isSubscribed,
+                                            plan: !user.isSubscribed ? 'premium' : 'free',
+                                            updatedAt: serverTimestamp()
+                                          });
+                                          showToast(t('User subscription updated!'));
+                                        } catch (error) {
+                                          handleFirestoreError(error, OperationType.UPDATE, `users/${user.uid}`);
+                                        }
+                                      }}
+                                      className="p-1.5 text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-colors" 
+                                      title={t('Gift Subscription')}
+                                    >
                                       <Icons.Gift size={16} />
                                     </button>
-                                    <button className="p-1.5 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors" title={t('Block User')}>
+                                    <button 
+                                      onClick={() => {
+                                        setConfirmModal({
+                                          show: true,
+                                          title: t('Delete User'),
+                                          message: t('Are you sure you want to delete this user? This action cannot be undone.'),
+                                          type: 'danger',
+                                          onConfirm: async () => {
+                                            try {
+                                              await deleteDoc(doc(db, 'users', user.uid));
+                                              showToast(t('User deleted!'));
+                                              setConfirmModal(prev => ({ ...prev, show: false }));
+                                            } catch (error) {
+                                              handleFirestoreError(error, OperationType.DELETE, `users/${user.uid}`);
+                                            }
+                                          }
+                                        });
+                                      }}
+                                      className="p-1.5 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors" 
+                                      title={t('Delete User')}
+                                    >
                                       <Icons.UserX size={16} />
                                     </button>
                                   </div>
@@ -6194,6 +4989,37 @@ export default function App() {
                   </select>
                 </div>
 
+                {/* AI Target Optimization */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-sm font-bold text-white">{t('AI Target (Optimization)')}</h4>
+                    <p className="text-xs text-zinc-500">{t('Optimize prompts for specific AI models')}</p>
+                  </div>
+                  <select 
+                    value={targetModel}
+                    onChange={(e) => {
+                      setTargetModel(e.target.value);
+                      localStorage.setItem('scenecraft_target_model', e.target.value);
+                    }}
+                    className="bg-zinc-950 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none"
+                  >
+                    <option value="scenecraft">SceneCraft Soul</option>
+                    <option value="midjourney">Midjourney (V6+)</option>
+                    <option value="stable-diffusion">Stable Diffusion (XL/3)</option>
+                    <option value="dalle-3">DALL-E 3</option>
+                    <option value="flux">Flux.1 (Pro/Dev)</option>
+                    <option value="nanobanana">Nanobanana Pro</option>
+                    <option value="novelai">NovelAI.net</option>
+                    <option value="chatgpt">ChatGPT (Vision)</option>
+                    <option value="ideogram">Ideogram</option>
+                    <option value="firefly">Adobe Firefly</option>
+                    <option value="leonardo">Leonardo AI</option>
+                    <option value="krea">Krea.ai</option>
+                    <option value="starryai">StarryAI</option>
+                    <option value="code">{t('Code Generation')}</option>
+                  </select>
+                </div>
+
                 {/* Manual Generation Toggle */}
                 <div className="flex items-center justify-between">
                   <div>
@@ -6622,17 +5448,23 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* Copy Toast */}
+      {/* Toast Notification */}
       <AnimatePresence>
-        {copyToast.show && (
+        {toast.show && (
           <motion.div
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 50 }}
-            className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-emerald-500 text-black px-4 py-2 rounded-full font-medium text-sm shadow-lg shadow-emerald-500/20 z-[200] flex items-center gap-2"
+            className={`fixed bottom-6 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full font-medium text-sm shadow-lg z-[200] flex items-center gap-2 ${
+              toast.type === 'error' ? 'bg-red-500 text-white shadow-red-500/20' :
+              toast.type === 'info' ? 'bg-blue-500 text-white shadow-blue-500/20' :
+              'bg-emerald-500 text-black shadow-emerald-500/20'
+            }`}
           >
-            <Icons.Check size={16} />
-            {copyToast.message}
+            {toast.type === 'error' ? <Icons.AlertCircle size={16} /> : 
+             toast.type === 'info' ? <Icons.Info size={16} /> : 
+             <Icons.Check size={16} />}
+            {toast.message}
           </motion.div>
         )}
       </AnimatePresence>
