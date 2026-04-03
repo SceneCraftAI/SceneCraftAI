@@ -26,6 +26,7 @@ export default function App() {
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [activeCategory, setActiveCategory] = useState<CategoryId>('result');
   const [workMode, setWorkMode] = useState<WorkMode>('prompting');
+  const [promptSubMode, setPromptSubMode] = useState<'influencer' | 'general'>('influencer');
   
   // Prompt compilation state
   const [promptSegments, setPromptSegments] = useState<PromptSegment[]>([]);
@@ -140,6 +141,90 @@ export default function App() {
   const [activeTopic, setActiveTopic] = useState<any | null>(null);
   const [coworkingMessages, setCoworkingMessages] = useState<any[]>([]);
   const [coworkingInput, setCoworkingInput] = useState('');
+  const [isCoworkingUsersExpanded, setIsCoworkingUsersExpanded] = useState(true);
+  const [coworkingInviteSearch, setCoworkingInviteSearch] = useState('');
+  const [activeInvitation, setActiveInvitation] = useState<{
+    id: string;
+    topicId: string;
+    topicTitle: string;
+    inviterName: string;
+    expiresAt: number;
+  } | null>(null);
+
+  // Handle invite links in URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const inviteTopicId = params.get('invite');
+    
+    if (inviteTopicId) {
+      if (currentUser && socket) {
+        // Join topic automatically
+        socket.emit('join-topic', { topicId: inviteTopicId, userId: currentUser.uid });
+        // Clear URL params
+        window.history.replaceState({}, document.title, window.location.pathname);
+        localStorage.removeItem('pending_coworking_invite');
+        
+        setToast({
+          show: true,
+          message: t('Joined topic via invite link!'),
+          type: 'success'
+        });
+        setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
+      } else {
+        // Save for later if not logged in
+        localStorage.setItem('pending_coworking_invite', inviteTopicId);
+      }
+    } else {
+      // Check for pending invite after login
+      const pendingInvite = localStorage.getItem('pending_coworking_invite');
+      if (pendingInvite && currentUser && socket) {
+        socket.emit('join-topic', { topicId: pendingInvite, userId: currentUser.uid });
+        localStorage.removeItem('pending_coworking_invite');
+        setToast({
+          show: true,
+          message: t('Joined topic via invite link!'),
+          type: 'success'
+        });
+        setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
+      }
+    }
+  }, [currentUser, socket]);
+
+  // Listen for real-time invitations
+  useEffect(() => {
+    if (!socket || !currentUser) return;
+
+    socket.on('invite-received', (data: { topicId: string; topicTitle: string; inviterName: string; inviterId: string }) => {
+      setActiveInvitation({
+        id: Math.random().toString(36).substr(2, 9),
+        topicId: data.topicId,
+        topicTitle: data.topicTitle,
+        inviterName: data.inviterName,
+        expiresAt: Date.now() + 10000
+      });
+    });
+
+    return () => {
+      socket.off('invite-received');
+    };
+  }, [socket, currentUser]);
+
+  // Invitation countdown timer
+  useEffect(() => {
+    if (!activeInvitation) return;
+
+    const timer = setInterval(() => {
+      if (Date.now() >= activeInvitation.expiresAt) {
+        setActiveInvitation(null);
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [activeInvitation]);
+  const [coworkingAttachments, setCoworkingAttachments] = useState<any[]>([]);
+  const [selectedAttachment, setSelectedAttachment] = useState<any>(null);
+  const [showAttachmentModal, setShowAttachmentModal] = useState(false);
+  const coworkingFileInputRef = useRef<HTMLInputElement>(null);
   const [showCreateTopicModal, setShowCreateTopicModal] = useState(false);
   const [newTopicTitle, setNewTopicTitle] = useState('');
   const [newTopicDescription, setNewTopicDescription] = useState('');
@@ -276,7 +361,8 @@ export default function App() {
   });
 
   const activeCategories = useMemo(() => {
-    const base = workMode === 'influencer' ? INFLUENCER_CATEGORIES : GENERAL_CATEGORIES;
+    const isInfluencer = workMode === 'influencer' || (workMode === 'prompting' && promptSubMode === 'influencer');
+    const base = isInfluencer ? INFLUENCER_CATEGORIES : GENERAL_CATEGORIES;
     const custom = customCategories
       .filter(c => !c.parentId)
       .map(c => ({
@@ -287,7 +373,7 @@ export default function App() {
         isCustom: true
       }));
     return [...base, ...custom];
-  }, [workMode, customCategories]);
+  }, [workMode, promptSubMode, customCategories]);
 
   const allCategoriesCombined = useMemo(() => {
     const customMapped = customCategories.map(c => ({
@@ -567,9 +653,30 @@ export default function App() {
         isCustom: true
       }));
     }
-    const baseBlocks = workMode === 'influencer' ? INFLUENCER_BLOCKS : GENERAL_BLOCKS;
+    const isInfluencer = workMode === 'influencer' || (workMode === 'prompting' && promptSubMode === 'influencer');
+    const baseBlocks = isInfluencer ? INFLUENCER_BLOCKS : GENERAL_BLOCKS;
     return baseBlocks.filter(b => b.categoryId === activeCategory);
-  }, [activeCategory, workMode, savedPrompts]);
+  }, [activeCategory, workMode, promptSubMode, savedPrompts]);
+
+  // Category adjustment logic
+  useEffect(() => {
+    if (workMode === 'prompting' || workMode === 'influencer') {
+      const isInfluencer = workMode === 'influencer' || (workMode === 'prompting' && promptSubMode === 'influencer');
+      const categories = isInfluencer ? INFLUENCER_CATEGORIES : GENERAL_CATEGORIES;
+      const exists = categories.some(c => c.id === activeCategory) || customCategories.some(c => c.id === activeCategory);
+      
+      if (!exists && activeCategory !== 'my_prompts') {
+        const safeCategory = isInfluencer ? 'result' : 'gen_style';
+        setActiveCategory(safeCategory);
+        setToast({
+          show: true, 
+          message: t('Category adjusted for {mode} mode').replace('{mode}', t(isInfluencer ? 'Scene' : 'General')),
+          type: 'info'
+        });
+        setTimeout(() => setToast({show: false, message: '', type: 'success'}), 3000);
+      }
+    }
+  }, [promptSubMode, workMode, activeCategory, customCategories]);
 
   const handleOpenAddPromptModal = () => {
     setNewPromptTitle(t('Prompt {n}').replace('{n}', (savedPrompts.length + 1).toString()));
@@ -639,10 +746,10 @@ export default function App() {
   const [showBustModal, setShowBustModal] = useState(false);
 
   // Scene Structure UI State
-  const [sceneStructureHeight, setSceneStructureHeight] = useState<number>(200);
-  const [isSceneStructureExpanded, setIsSceneStructureExpanded] = useState(false);
-  const [isSceneStructureCollapsed, setIsSceneStructureCollapsed] = useState(false);
-  const [isResizingScene, setIsResizingScene] = useState(false);
+  const [influencerStructureHeight, setInfluencerStructureHeight] = useState<number>(200);
+  const [isInfluencerStructureExpanded, setIsInfluencerStructureExpanded] = useState(false);
+  const [isInfluencerStructureCollapsed, setIsInfluencerStructureCollapsed] = useState(false);
+  const [isResizingInfluencer, setIsResizingInfluencer] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -915,17 +1022,17 @@ export default function App() {
   // Resizing logic for Scene Structure
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      if (!isResizingScene) return;
+      if (!isResizingInfluencer) return;
       const newHeight = Math.max(100, Math.min(window.innerHeight * 0.7, e.clientY - 150)); // Adjusted offset
-      setSceneStructureHeight(newHeight);
+      setInfluencerStructureHeight(newHeight);
     };
 
     const handleMouseUp = () => {
-      setIsResizingScene(false);
+      setIsResizingInfluencer(false);
       document.body.style.cursor = 'default';
     };
 
-    if (isResizingScene) {
+    if (isResizingInfluencer) {
       window.addEventListener('mousemove', handleMouseMove);
       window.addEventListener('mouseup', handleMouseUp);
       document.body.style.cursor = 'ns-resize';
@@ -935,7 +1042,7 @@ export default function App() {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isResizingScene]);
+  }, [isResizingInfluencer]);
 
   useEffect(() => {
     localStorage.setItem('favoriteBlocks', JSON.stringify(favoriteBlocks));
@@ -1002,29 +1109,6 @@ export default function App() {
     setManualPromptReady(true);
   };
 
-  const handleMagicEnhance = async () => {
-    if (!compiledPrompt) return;
-    setIsCompiling(true);
-    try {
-      const enhanced = await enhancePrompt(compiledPrompt);
-      setCompiledPrompt(enhanced);
-      setPromptSegments([{ text: enhanced, categoryId: 'custom' }]);
-      setIsEditingPrompt(true);
-      
-      // Add to session history
-      const newEntry = {
-        prompt: enhanced,
-        timestamp: Date.now(),
-        type: 'enhanced' as const
-      };
-      setSessionHistory(prev => [newEntry, ...prev]);
-    } catch (error) {
-      console.error("Error enhancing prompt:", error);
-    } finally {
-      setIsCompiling(false);
-    }
-  };
-
   const handleTargetModelChange = async (model: string) => {
     setTargetModel(model);
     if (!compiledPrompt) return;
@@ -1066,7 +1150,8 @@ export default function App() {
         return;
       }
       setIsSuggesting(true);
-      const suggestedIds = await suggestRelatedBlocks(selectedBlocks);
+      const isInfluencer = workMode === 'influencer' || (workMode === 'prompting' && promptSubMode === 'influencer');
+      const suggestedIds = await suggestRelatedBlocks(selectedBlocks, isInfluencer ? 'influencer' : 'general');
       const newSuggestions = suggestedIds
         .map(id => ALL_BLOCKS.find(b => b.id === id))
         .filter((b): b is Block => b !== undefined);
@@ -1086,6 +1171,37 @@ export default function App() {
   const [extractedPrompt, setExtractedPrompt] = useState<string | null>(null);
   const [showComparisonModal, setShowComparisonModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleCoworkingImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !activeTopic || !socket || !currentUser) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64 = event.target?.result as string;
+      const message = {
+        topicId: activeTopic.id,
+        userId: currentUser.uid,
+        userName: currentUser.displayName,
+        userHashtag: currentUser.hashtag,
+        text: '',
+        image: base64,
+        timestamp: Date.now()
+      };
+      socket.emit('send-message', { topicId: activeTopic.id, message });
+      
+      // Add to attachments
+      setCoworkingAttachments(prev => [...prev, {
+        id: Math.random().toString(36).substr(2, 9),
+        url: base64,
+        userName: currentUser.displayName,
+        timestamp: Date.now(),
+        topicId: activeTopic.id
+      }]);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1115,7 +1231,8 @@ export default function App() {
   const handleRefreshSuggestions = async () => {
     if (selectedBlocks.length === 0) return;
     setIsSuggesting(true);
-    const suggestedIds = await suggestRelatedBlocks(selectedBlocks);
+    const isInfluencer = workMode === 'influencer' || (workMode === 'prompting' && promptSubMode === 'influencer');
+    const suggestedIds = await suggestRelatedBlocks(selectedBlocks, isInfluencer ? 'influencer' : 'general');
     const newSuggestions = suggestedIds
       .map(id => ALL_BLOCKS.find(b => b.id === id))
       .filter((b): b is Block => b !== undefined);
@@ -1173,6 +1290,32 @@ export default function App() {
     setIsChatting(true);
     // Add the chat input directly as a custom instruction
     setCustomInstructions(prev => [...prev, chatInput.trim()]);
+    
+    // Analyze chat input to add/remove blocks
+    try {
+      const isInfluencer = workMode === 'influencer' || (workMode === 'prompting' && promptSubMode === 'influencer');
+      const { blocksToAdd, blocksToRemove } = await analyzeChatInput(chatInput.trim(), selectedBlocks, isInfluencer ? 'influencer' : 'general');
+      
+      if (blocksToAdd.length > 0 || blocksToRemove.length > 0) {
+        let newBlocks = [...selectedBlocks];
+        
+        // Remove blocks
+        newBlocks = newBlocks.filter(b => !blocksToRemove.includes(b.id));
+        
+        // Add blocks
+        blocksToAdd.forEach(id => {
+          const block = ALL_BLOCKS.find(b => b.id === id);
+          if (block && !newBlocks.some(nb => nb.id === block.id)) {
+            newBlocks.push(block);
+          }
+        });
+        
+        setSelectedBlocks(newBlocks);
+      }
+    } catch (error) {
+      console.error('Error analyzing chat input:', error);
+    }
+
     setChatInput('');
     
     // Reset textarea height
@@ -1470,7 +1613,7 @@ export default function App() {
             <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center text-black shadow-lg shadow-emerald-500/20 hidden sm:flex">
               <Icons.Zap size={18} />
             </div>
-            <h1 className="font-semibold tracking-tight text-white hidden sm:block">SceneCraft AI</h1>
+            <h1 className="font-semibold tracking-tight text-white hidden sm:block">SceneCraft v1.2</h1>
           </div>
 
           <div className="flex items-center gap-2 md:gap-3">
@@ -1566,8 +1709,7 @@ export default function App() {
           <div className="flex items-center gap-2 shrink-0">
             {activeTabGroup === 'tools' && (
               <>
-                <button onClick={() => setWorkMode('influencer')} className={`px-3 py-1 text-[10px] md:text-xs font-semibold rounded-md transition-colors shrink-0 ${workMode === 'influencer' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'text-zinc-400 hover:text-blue-300'}`}>{t('Scene')}</button>
-                <button onClick={() => setWorkMode('prompting')} className={`px-3 py-1 text-[10px] md:text-xs font-semibold rounded-md transition-colors shrink-0 ${workMode === 'prompting' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'text-zinc-400 hover:text-blue-300'}`}>{t('General Prompting')}</button>
+                <button onClick={() => setWorkMode('prompting')} className={`px-3 py-1 text-[10px] md:text-xs font-semibold rounded-md transition-colors shrink-0 ${workMode === 'prompting' || workMode === 'influencer' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'text-zinc-400 hover:text-blue-300'}`}>{t('Prompting')}</button>
                 <button onClick={() => setWorkMode('recreation')} className={`px-3 py-1 text-[10px] md:text-xs font-semibold rounded-md transition-colors shrink-0 ${workMode === 'recreation' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'text-zinc-400 hover:text-blue-300'}`}>{t('Recreation')}</button>
                 <button onClick={() => setWorkMode('variations')} className={`px-3 py-1 text-[10px] md:text-xs font-semibold rounded-md transition-colors shrink-0 ${workMode === 'variations' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'text-zinc-400 hover:text-blue-300'}`}>{t('Variations')}</button>
                 <button onClick={() => setWorkMode('flow')} className={`px-3 py-1 text-[10px] md:text-xs font-semibold rounded-md transition-colors shrink-0 ${workMode === 'flow' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'text-zinc-400 hover:text-blue-300'}`}>{t('Flow')}</button>
@@ -1702,7 +1844,7 @@ export default function App() {
                     <Icons.MousePointerClick size={14} />
                     {activeCategory.startsWith('custom_cat_') 
                       ? customCategories.find(c => c.id === activeCategory)?.name || t('Custom Category')
-                      : ALL_CATEGORIES.find(c => c.id === activeCategory)?.label || 'Selecciona opciones'}
+                      : ALL_CATEGORIES.find(c => c.id === activeCategory)?.label || t('Select options')}
                   </h3>
                   <p className="text-[10px] text-zinc-500 mt-1">{t('Click on the blocks to add them to your prompt.')}</p>
                 </div>
@@ -1907,26 +2049,44 @@ export default function App() {
             <>
               {/* Active Blocks Map */}
               <div 
-                className={`relative border-b border-white/10 flex flex-col bg-[#0F0F0F]/50 group/scene transition-all duration-300 ${isSceneStructureCollapsed ? 'h-12 overflow-hidden' : ''}`}
-                style={{ height: isSceneStructureCollapsed ? '48px' : (window.innerWidth < 768 ? '25vh' : sceneStructureHeight) }}
+                className={`relative border-b border-white/10 flex flex-col bg-[#0F0F0F]/50 group/influencer transition-all duration-300 ${isInfluencerStructureCollapsed ? 'h-12 overflow-hidden' : ''}`}
+                style={{ height: isInfluencerStructureCollapsed ? '48px' : (window.innerWidth < 768 ? '25vh' : influencerStructureHeight) }}
               >
                 <div className="px-6 py-3 flex items-center justify-between border-b border-white/5 bg-[#0A0A0A]/50 shrink-0">
-                  <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 flex items-center gap-2">
-                    <Icons.Layers size={14} />
-                    {t('Scene Structure')}
-                  </h2>
+                  <div className="flex items-center gap-4">
+                    <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 flex items-center gap-2">
+                      <Icons.Layers size={14} />
+                      {t('Scene Structure')}
+                    </h2>
+                    {(workMode === 'prompting' || workMode === 'influencer') && (
+                      <div className="flex items-center bg-zinc-900/50 p-1 rounded-lg border border-white/5">
+                        <button 
+                          onClick={() => setPromptSubMode('influencer')}
+                          className={`px-3 py-1 text-[10px] font-bold uppercase rounded-md transition-all ${promptSubMode === 'influencer' ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20' : 'text-zinc-500 hover:text-zinc-300'}`}
+                        >
+                          {t('Influencer')}
+                        </button>
+                        <button 
+                          onClick={() => setPromptSubMode('general')}
+                          className={`px-3 py-1 text-[10px] font-bold uppercase rounded-md transition-all ${promptSubMode === 'general' ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20' : 'text-zinc-500 hover:text-zinc-300'}`}
+                        >
+                          {t('General')}
+                        </button>
+                      </div>
+                    )}
+                  </div>
                   <div className="flex items-center gap-2">
                     <button 
-                      onClick={() => setIsSceneStructureCollapsed(!isSceneStructureCollapsed)}
+                      onClick={() => setIsInfluencerStructureCollapsed(!isInfluencerStructureCollapsed)}
                       className="p-1.5 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded-lg transition-all flex items-center gap-1.5 text-[10px] font-bold uppercase"
-                      title={isSceneStructureCollapsed ? t('Expand structure') : t('Collapse structure')}
+                      title={isInfluencerStructureCollapsed ? t('Expand structure') : t('Collapse structure')}
                     >
-                      {isSceneStructureCollapsed ? <Icons.ChevronDown size={12} /> : <Icons.ChevronUp size={12} />}
-                      <span className="hidden sm:inline">{isSceneStructureCollapsed ? t('Expand') : t('Collapse')}</span>
+                      {isInfluencerStructureCollapsed ? <Icons.ChevronDown size={12} /> : <Icons.ChevronUp size={12} />}
+                      <span className="hidden sm:inline">{isInfluencerStructureCollapsed ? t('Expand') : t('Collapse')}</span>
                     </button>
-                    {!isSceneStructureCollapsed && (
+                    {!isInfluencerStructureCollapsed && (
                       <button 
-                        onClick={() => setIsSceneStructureExpanded(true)}
+                        onClick={() => setIsInfluencerStructureExpanded(true)}
                         className="p-1.5 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded-lg transition-all flex items-center gap-1.5 text-[10px] font-bold uppercase"
                         title={t('Expand structure')}
                       >
@@ -1950,6 +2110,11 @@ export default function App() {
                       <>
                         {selectedBlocks.map(block => {
                           const cat = ALL_CATEGORIES.find(c => c.id === block.categoryId);
+                          const isInfluencer = workMode === 'influencer' || (workMode === 'prompting' && promptSubMode === 'influencer');
+                          const isFromOtherMode = isInfluencer 
+                            ? GENERAL_BLOCKS.some(gb => gb.id === block.id)
+                            : INFLUENCER_BLOCKS.some(ib => ib.id === block.id);
+
                           return (
                             <motion.div
                               layout
@@ -1959,8 +2124,11 @@ export default function App() {
                               key={block.id}
                               onMouseEnter={() => setHoveredCategory(block.categoryId)}
                               onMouseLeave={() => setHoveredCategory(null)}
-                              className={`flex items-center gap-2 bg-zinc-800 border px-3 py-1.5 rounded-full text-sm text-zinc-200 group cursor-default transition-colors ${hoveredCategory === block.categoryId ? 'border-emerald-500/50' : 'border-white/10'}`}
+                              className={`flex items-center gap-2 bg-zinc-800 border px-3 py-1.5 rounded-full text-sm text-zinc-200 group cursor-default transition-colors ${hoveredCategory === block.categoryId ? 'border-emerald-500/50' : isFromOtherMode ? 'border-amber-500/30 bg-amber-500/5' : 'border-white/10'}`}
                             >
+                              {isFromOtherMode && (
+                                <Icons.AlertCircle size={12} className="text-amber-500/70" title={t('Block from other mode')} />
+                              )}
                               <span className={`text-xs ${cat?.color || 'text-zinc-500'}`}>{cat?.label ? t(cat.label) : t('Custom')}:</span>
                               <span>{t(block.label)}</span>
                               <button 
@@ -2010,7 +2178,7 @@ export default function App() {
 
                 {/* Vertical Resizer Handle */}
                 <div 
-                  onMouseDown={() => setIsResizingScene(true)}
+                  onMouseDown={() => setIsResizingInfluencer(true)}
                   className="absolute bottom-0 left-0 right-0 h-1.5 cursor-ns-resize hover:bg-emerald-500/50 transition-colors z-10 flex items-center justify-center group/handle"
                 >
                   <div className="w-12 h-0.5 bg-white/10 rounded-full group-hover/handle:bg-white/30 transition-colors" />
@@ -2025,17 +2193,8 @@ export default function App() {
                       <Icons.Terminal size={14} />
                       {t('Prompt Final')}
                     </h2>
-
-                    {/* Magic Enhance Button */}
-                    <button 
-                      onClick={handleMagicEnhance}
-                      disabled={!compiledPrompt || isCompiling}
-                      className="p-1.5 text-zinc-500 hover:text-emerald-400 transition-colors bg-zinc-900/50 rounded-lg border border-white/5 group"
-                      title={t('Magic Enhance (AI)')}
-                    >
-                      <Icons.Wand2 size={14} className={isCompiling ? 'animate-pulse' : 'group-hover:rotate-12 transition-transform'} />
-                    </button>
-
+                  </div>
+                  <div className="flex items-center gap-4 ml-auto">
                     {/* Character Limit Counter */}
                     <div className="flex items-center gap-2 bg-zinc-900/50 px-2 py-1 rounded border border-white/5">
                       <Icons.Type size={12} className="text-zinc-500" />
@@ -2084,28 +2243,6 @@ export default function App() {
                         </button>
                       )}
                     </div>
-                    {isManualGeneration && (
-                      <button 
-                        onClick={handleManualGenerate}
-                        disabled={selectedBlocks.length === 0 && customInstructions.length === 0}
-                        className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 disabled:bg-zinc-800 disabled:text-zinc-600 text-black text-xs font-bold rounded-lg transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-1"
-                      >
-                        <Icons.Play size={12} /> {t('GENERATE NOW')}
-                      </button>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-4">
-                    {!isBannedWordsLocked && (
-                      <span className="text-xs text-red-400 font-medium flex items-center gap-1 animate-pulse">
-                        <Icons.AlertTriangle size={12} /> {t('Editing banned words')}
-                      </span>
-                    )}
-                    {isCompiling && (
-                      <div className="flex items-center gap-2 text-xs text-emerald-400">
-                        <Icons.Loader2 size={12} className="animate-spin" />
-                        {t('Compiling...')}
-                      </div>
-                    )}
 
                     <button 
                       onClick={() => setShowSessionHistory(true)}
@@ -2176,6 +2313,18 @@ export default function App() {
 
               {/* Chat Input */}
               <div className="p-6 pt-0">
+                {isManualGeneration && (
+                  <div className="flex justify-center mb-4">
+                    <button 
+                      onClick={handleManualGenerate}
+                      disabled={selectedBlocks.length === 0 && customInstructions.length === 0}
+                      className="px-6 py-2.5 bg-emerald-500 hover:bg-emerald-400 disabled:bg-zinc-800 disabled:text-zinc-600 text-black text-sm font-bold rounded-xl transition-all shadow-xl shadow-emerald-500/20 flex items-center gap-2 group"
+                    >
+                      <Icons.Play size={16} className="group-hover:scale-110 transition-transform" /> 
+                      {t('GENERATE NOW')}
+                    </button>
+                  </div>
+                )}
                 <form onSubmit={handleChatSubmit} className="relative">
                   <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500">
                     <Icons.MessageSquare size={18} />
@@ -2551,20 +2700,20 @@ export default function App() {
                   <div className="flex flex-col gap-4 mt-4">
                     {generatedStory && (
                       <div className="bg-zinc-900 border border-white/5 rounded-xl p-4">
-                        <h3 className="text-sm font-semibold text-emerald-400 mb-2">Historia Narrativa</h3>
+                        <h3 className="text-sm font-semibold text-emerald-400 mb-2">{t('Narrative Story')}</h3>
                         <p className="text-sm text-zinc-300 leading-relaxed">{generatedStory}</p>
                       </div>
                     )}
                     <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                       <Icons.ListOrdered size={20} className="text-emerald-400" />
-                      Flujo Generado
+                      {t('Generated Flow')}
                     </h3>
                     <div className="flex flex-col gap-3">
                       {generatedFlow.map((item, index) => (
                         <div key={index} className={`bg-zinc-900 border ${item.isOriginal ? 'border-emerald-500/50' : 'border-white/5'} rounded-xl p-4 flex flex-col gap-2 relative overflow-hidden`}>
                           {item.isOriginal && (
                             <div className="absolute top-0 right-0 bg-emerald-500/20 text-emerald-400 text-[10px] font-bold px-2 py-1 rounded-bl-lg flex items-center gap-1">
-                              <Icons.Lock size={10} /> PROMPT ORIGINAL
+                              <Icons.Lock size={10} /> {t('ORIGINAL PROMPT')}
                             </div>
                           )}
                           <div className="flex items-center justify-between">
@@ -2607,7 +2756,7 @@ export default function App() {
                     onClick={() => setShowShareModal(true)}
                     className="px-4 py-2 rounded-lg text-sm font-medium bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/20 transition-colors flex items-center gap-2"
                   >
-                    <Icons.Upload size={16} /> Compartir Prompt
+                    <Icons.Upload size={16} /> {t('Share Prompt')}
                   </button>
                 </div>
 
@@ -2711,7 +2860,7 @@ export default function App() {
                       onClick={() => setAlquimiaHistory([])}
                       className="px-4 py-2 rounded-lg text-sm font-medium bg-zinc-800 text-zinc-400 hover:text-red-400 transition-colors flex items-center gap-2"
                     >
-                      <Icons.Trash2 size={16} /> Limpiar Historial
+                      <Icons.Trash2 size={16} /> {t('Clear History')}
                     </button>
                   </div>
                 </div>
@@ -2758,7 +2907,7 @@ export default function App() {
                           className="flex flex-col items-center gap-2 text-zinc-600 hover:text-emerald-400 transition-colors"
                         >
                           <Icons.Upload size={24} />
-                          <span className="text-[10px] font-bold uppercase tracking-wider">Subir</span>
+                          <span className="text-[10px] font-bold uppercase tracking-wider">{t('Upload')}</span>
                         </button>
                       )}
                     </div>
@@ -2771,7 +2920,7 @@ export default function App() {
                   className="w-full py-4 rounded-2xl font-bold bg-emerald-500 text-black hover:bg-emerald-400 transition-all shadow-xl shadow-emerald-500/20 flex items-center justify-center gap-3 disabled:opacity-50"
                 >
                   {alquimiaLoading ? <Icons.Loader2 size={24} className="animate-spin" /> : <Icons.Zap size={24} />}
-                  {alquimiaLoading ? 'ANALIZANDO Y TRANSMUTANDO...' : 'GENERAR ALQUIMIA'}
+                  {alquimiaLoading ? t('ANALYZING AND TRANSMUTING...') : t('GENERATE ALCHEMY')}
                 </button>
 
                 {alquimiaError && (
@@ -2829,7 +2978,7 @@ export default function App() {
                               onClick={() => setAlquimiaPrompts(h.prompts)}
                               className="text-xs text-emerald-500 hover:underline"
                             >
-                              Restaurar este lote
+                              {t('Restore this batch')}
                             </button>
                           </div>
                           <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
@@ -2887,7 +3036,7 @@ export default function App() {
                           onClick={() => setShowCreateTopicModal(true)}
                           className="mt-4 px-4 py-2 bg-orange-500 text-black rounded-lg text-sm font-bold hover:bg-orange-400 transition-colors"
                         >
-                          Crear Primer Tema
+                          {t('Create First Topic')}
                         </button>
                       </div>
                     )}
@@ -2895,36 +3044,183 @@ export default function App() {
                 </div>
 
                 {/* Chat Area */}
-                <div className="flex-1 flex flex-col bg-[#0A0A0A]">
+                <div className="flex-1 flex flex-col bg-[#0A0A0A] relative">
                   {activeTopic ? (
                     <>
                       <div className="p-4 border-b border-white/5 bg-[#0F0F0F] flex items-center justify-between">
-                        <div>
-                          <h3 className="text-white font-bold">{activeTopic.title}</h3>
-                          <p className="text-xs text-zinc-500">{activeTopic.description}</p>
+                        <div className="flex items-center gap-4">
+                          <div>
+                            <h3 className="text-white font-bold">{activeTopic.title}</h3>
+                            <p className="text-xs text-zinc-500">{activeTopic.description}</p>
+                          </div>
+                          
+                          {/* User List Collapsible */}
+                          <div className="flex items-center gap-2 ml-4 border-l border-white/10 pl-4">
+                            <button 
+                              onClick={() => setIsCoworkingUsersExpanded(!isCoworkingUsersExpanded)}
+                              className="flex items-center gap-2 hover:bg-white/5 px-2 py-1 rounded-lg transition-colors"
+                            >
+                              <div className="flex -space-x-2 overflow-hidden">
+                                {[currentUser, ...allUsers].slice(0, 10).map((user, i) => (
+                                  <div 
+                                    key={user?.uid || i} 
+                                    className={`inline-block h-6 w-6 rounded-full ring-2 relative ${user?.isConnected ? 'ring-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'ring-[#0F0F0F]'}`}
+                                  >
+                                    <img
+                                      className="h-full w-full rounded-full object-cover"
+                                      src={user?.photoURL || `https://ui-avatars.com/api/?name=${user?.displayName || 'User'}&background=random`}
+                                      alt=""
+                                      referrerPolicy="no-referrer"
+                                    />
+                                    {user?.isConnected && (
+                                      <div className="absolute bottom-0 right-0 w-1.5 h-1.5 bg-emerald-500 rounded-full ring-1 ring-[#0F0F0F]" />
+                                    )}
+                                  </div>
+                                ))}
+                                {([currentUser, ...allUsers].length > 10) && (
+                                  <div className="flex items-center justify-center h-6 w-6 rounded-full bg-zinc-800 ring-2 ring-[#0F0F0F] text-[10px] text-zinc-400 font-bold">
+                                    ...
+                                  </div>
+                                )}
+                              </div>
+                              <Icons.ChevronDown size={14} className={`text-zinc-500 transition-transform ${isCoworkingUsersExpanded ? 'rotate-180' : ''}`} />
+                            </button>
+                          </div>
                         </div>
                         <div className="flex items-center gap-2">
                           <button 
                             onClick={() => setShowInviteModal(true)}
                             className="px-3 py-1.5 rounded-lg bg-zinc-800 text-zinc-300 text-xs font-bold hover:bg-zinc-700 transition-colors flex items-center gap-2"
                           >
-                            <Icons.UserPlus size={14} /> Invitar
+                            <Icons.UserPlus size={14} /> {t('Invite')}
                           </button>
                         </div>
                       </div>
-                      <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
-                        {coworkingMessages.filter(m => m.topicId === activeTopic.id).map((msg, idx) => (
-                          <div key={idx} className={`flex flex-col ${msg.userId === currentUser?.uid ? 'items-end' : 'items-start'}`}>
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-[10px] font-bold text-zinc-500">{msg.userName}#{msg.userHashtag}</span>
+
+                      {/* Expanded User List */}
+                      {isCoworkingUsersExpanded && (
+                        <div className="px-4 py-2 bg-[#0F0F0F] border-b border-white/5 flex flex-wrap gap-3">
+                          {[currentUser, ...allUsers].map((user) => (
+                            <div key={user?.uid} className="flex items-center gap-2 bg-zinc-900/50 px-2 py-1 rounded-full border border-white/5">
+                              <div className="relative">
+                                <img 
+                                  src={user?.photoURL || `https://ui-avatars.com/api/?name=${user?.displayName || 'User'}&background=random`} 
+                                  alt="" 
+                                  className={`w-5 h-5 rounded-full object-cover ring-1 ${user?.isConnected ? 'ring-emerald-500' : 'ring-zinc-700'}`}
+                                  referrerPolicy="no-referrer"
+                                />
+                                {user?.isConnected && <div className="absolute -bottom-0.5 -right-0.5 w-1.5 h-1.5 bg-emerald-500 rounded-full border border-[#0F0F0F]" />}
+                              </div>
+                              <span className="text-[10px] font-bold text-zinc-300">{user?.displayName}</span>
+                              {user?.uid === activeTopic.ownerId && <Icons.Crown size={10} className="text-yellow-500" />}
                             </div>
-                            <div className={`max-w-[70%] p-3 rounded-2xl text-sm ${msg.userId === currentUser?.uid ? 'bg-orange-500 text-black rounded-tr-none' : 'bg-zinc-800 text-white rounded-tl-none'}`}>
-                              {msg.text}
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="flex-1 flex overflow-hidden">
+                        <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
+                          {coworkingMessages.filter(m => m.topicId === activeTopic.id).map((msg, idx) => (
+                            <div key={idx} className={`flex flex-col ${msg.userId === currentUser?.uid ? 'items-end' : 'items-start'}`}>
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-[10px] font-bold text-zinc-500">{msg.userName}#{msg.userHashtag}</span>
+                              </div>
+                              <div className={`max-w-[70%] p-3 rounded-2xl text-sm ${msg.userId === currentUser?.uid ? 'bg-orange-500 text-black rounded-tr-none' : 'bg-zinc-800 text-white rounded-tl-none'}`}>
+                                {msg.text && <div>{msg.text}</div>}
+                                {msg.image && (
+                                  <div className="mt-2 space-y-2">
+                                    <img 
+                                      src={msg.image} 
+                                      alt="Shared" 
+                                      className="max-w-full rounded-lg cursor-pointer hover:opacity-90 transition-opacity" 
+                                      onClick={() => {
+                                        setSelectedAttachment({ url: msg.image, userName: msg.userName });
+                                        setShowAttachmentModal(true);
+                                      }}
+                                    />
+                                    <div className="flex flex-wrap gap-1.5 pt-2 border-t border-black/10">
+                                      <button 
+                                        onClick={() => {
+                                          setWorkMode('recreation');
+                                          setUploadedImage(msg.image);
+                                        }}
+                                        className="p-1.5 bg-black/20 hover:bg-black/40 rounded text-[10px] font-bold flex items-center gap-1 transition-colors"
+                                        title={t('Recreation')}
+                                      >
+                                        <Icons.RefreshCw size={10} /> Rec
+                                      </button>
+                                      <button 
+                                        className="p-1.5 bg-black/20 hover:bg-black/40 rounded text-[10px] font-bold flex items-center gap-1 transition-colors"
+                                        title={t('Variations')}
+                                      >
+                                        <Icons.Layers size={10} /> Var
+                                      </button>
+                                      <a 
+                                        href={msg.image} 
+                                        download={`shared-image-${Date.now()}.png`}
+                                        className="p-1.5 bg-black/20 hover:bg-black/40 rounded text-[10px] font-bold flex items-center gap-1 transition-colors"
+                                        title={t('Download')}
+                                      >
+                                        <Icons.Download size={10} /> DL
+                                      </a>
+                                      <button 
+                                        className="p-1.5 bg-black/20 hover:bg-black/40 rounded text-[10px] font-bold flex items-center gap-1 transition-colors"
+                                        title={t('Flow')}
+                                      >
+                                        <Icons.GitBranch size={10} /> Flow
+                                      </button>
+                                      <button 
+                                        onClick={async () => {
+                                          setUploadedImage(msg.image);
+                                          await analyzeImage();
+                                        }}
+                                        className="p-1.5 bg-black/20 hover:bg-black/40 rounded text-[10px] font-bold flex items-center gap-1 transition-colors"
+                                        title={t('Extract Prompt')}
+                                      >
+                                        <Icons.Sparkles size={10} /> Prompt
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                              <span className="text-[10px] text-zinc-600 mt-1">{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                             </div>
-                            <span className="text-[10px] text-zinc-600 mt-1">{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                          ))}
+                        </div>
+
+                        {/* Attachments Sidebar */}
+                        <div className="w-64 border-l border-white/5 bg-[#0F0F0F] flex flex-col">
+                          <div className="p-4 border-b border-white/5 flex items-center justify-between">
+                            <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-2">
+                              <Icons.Paperclip size={14} /> {t('Attachments')}
+                            </h4>
                           </div>
-                        ))}
+                          <div className="flex-1 overflow-y-auto p-3 grid grid-cols-2 gap-2 custom-scrollbar">
+                            {coworkingAttachments.filter(a => a.topicId === activeTopic.id).map((att) => (
+                              <div 
+                                key={att.id} 
+                                className="aspect-square rounded-lg overflow-hidden border border-white/5 hover:border-orange-500/50 transition-all cursor-pointer group relative"
+                                onClick={() => {
+                                  setSelectedAttachment(att);
+                                  setShowAttachmentModal(true);
+                                }}
+                              >
+                                <img src={att.url} alt="" className="w-full h-full object-cover" />
+                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                  <Icons.Maximize2 size={16} className="text-white" />
+                                </div>
+                              </div>
+                            ))}
+                            {coworkingAttachments.filter(a => a.topicId === activeTopic.id).length === 0 && (
+                              <div className="col-span-2 flex flex-col items-center justify-center py-8 text-center">
+                                <Icons.Image size={24} className="text-zinc-700 mb-2" />
+                                <p className="text-[10px] text-zinc-600">{t('No attachments yet')}</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       </div>
+
                       <div className="p-4 bg-[#0F0F0F] border-t border-white/5">
                         <form 
                           onSubmit={(e) => {
@@ -2944,12 +3240,46 @@ export default function App() {
                           className="flex items-center gap-2"
                         >
                           <input 
+                            type="file"
+                            ref={coworkingFileInputRef}
+                            onChange={handleCoworkingImageUpload}
+                            accept="image/*"
+                            className="hidden"
+                          />
+                          <button 
+                            type="button"
+                            onClick={() => coworkingFileInputRef.current?.click()}
+                            className="p-2 rounded-xl bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors"
+                            title={t('Upload Image')}
+                          >
+                            <Icons.ImagePlus size={20} />
+                          </button>
+                          <input 
                             type="text"
                             value={coworkingInput}
                             onChange={(e) => setCoworkingInput(e.target.value)}
                             placeholder={t('Type a message...')}
                             className="flex-1 bg-zinc-950 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-orange-500/50"
                           />
+                          <button 
+                            type="button"
+                            onClick={() => {
+                              if (!compiledPrompt || !activeTopic || !socket || !currentUser) return;
+                              const message = {
+                                topicId: activeTopic.id,
+                                userId: currentUser.uid,
+                                userName: currentUser.displayName,
+                                userHashtag: currentUser.hashtag,
+                                text: `PROMPT: ${compiledPrompt}`,
+                                timestamp: Date.now()
+                              };
+                              socket.emit('send-message', { topicId: activeTopic.id, message });
+                            }}
+                            className="p-2 rounded-xl bg-zinc-800 text-emerald-400 hover:text-emerald-300 hover:bg-zinc-700 transition-colors"
+                            title={t('Send Prompt')}
+                          >
+                            <Icons.Terminal size={20} />
+                          </button>
                           <button 
                             type="submit"
                             className="p-2 rounded-xl bg-orange-500 text-black hover:bg-orange-400 transition-colors"
@@ -2964,8 +3294,8 @@ export default function App() {
                       <div className="w-20 h-20 rounded-full bg-orange-500/10 flex items-center justify-center text-orange-400 mb-6">
                         <Icons.MessageSquare size={40} />
                       </div>
-                      <h3 className="text-xl font-bold text-white mb-2">Bienvenido al Coworking</h3>
-                      <p className="text-zinc-500 max-w-md">Selecciona un tema de la izquierda para empezar a colaborar con otros usuarios en tiempo real.</p>
+                      <h3 className="text-xl font-bold text-white mb-2">{t('Welcome to Coworking')}</h3>
+                      <p className="text-zinc-500 max-w-md">{t('Select a topic from the left to start collaborating with other users in real time.')}</p>
                     </div>
                   )}
                 </div>
@@ -2981,7 +3311,7 @@ export default function App() {
                     <Icons.ShieldCheck size={28} className="text-emerald-400" />
                     {t('Admin Panel')}
                   </h2>
-                  <p className="text-zinc-500 text-sm mt-1">Gestiona usuarios, suscripciones y contenido de la plataforma.</p>
+                  <p className="text-zinc-500 text-sm mt-1">{t('Manage users, subscriptions and platform content.')}</p>
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="flex bg-zinc-900 p-1 rounded-xl border border-white/5">
@@ -2989,25 +3319,25 @@ export default function App() {
                       onClick={() => setAdminTab('users')}
                       className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${adminTab === 'users' ? 'bg-emerald-500 text-black shadow-lg shadow-emerald-500/20' : 'text-zinc-400 hover:text-zinc-200'}`}
                     >
-                      Usuarios
+                      {t('Users')}
                     </button>
                     <button 
                       onClick={() => setAdminTab('news')}
                       className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${adminTab === 'news' ? 'bg-emerald-500 text-black shadow-lg shadow-emerald-500/20' : 'text-zinc-400 hover:text-zinc-200'}`}
                     >
-                      Noticias
+                      {t('News')}
                     </button>
                     <button 
                       onClick={() => setAdminTab('subs')}
                       className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${adminTab === 'subs' ? 'bg-emerald-500 text-black shadow-lg shadow-emerald-500/20' : 'text-zinc-400 hover:text-zinc-200'}`}
                     >
-                      Suscripciones
+                      {t('Subscriptions')}
                     </button>
                     <button 
                       onClick={() => setAdminTab('content')}
                       className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${adminTab === 'content' ? 'bg-emerald-500 text-black shadow-lg shadow-emerald-500/20' : 'text-zinc-400 hover:text-zinc-200'}`}
                     >
-                      Contenido
+                      {t('Content')}
                     </button>
                   </div>
                   <div className="bg-zinc-900 px-4 py-2 rounded-xl border border-white/5 flex items-center gap-3">
@@ -3015,7 +3345,7 @@ export default function App() {
                       <Icons.Users size={18} />
                     </div>
                     <div>
-                      <div className="text-[10px] text-zinc-500 uppercase font-bold">Usuarios Totales</div>
+                      <div className="text-[10px] text-zinc-500 uppercase font-bold">{t('Total Users')}</div>
                       <div className="text-lg font-bold text-white">{allUsers.length + 1}</div>
                     </div>
                   </div>
@@ -3033,13 +3363,13 @@ export default function App() {
                       <div className="flex items-center justify-between mb-6">
                         <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                           <Icons.Newspaper size={20} className="text-emerald-400" />
-                          Noticias y Actualizaciones
+                          {t('News and Updates')}
                         </h3>
                         <button 
                           onClick={() => setShowNewsModal(true)}
                           className="text-xs bg-emerald-500 text-black px-3 py-1.5 rounded-lg font-bold hover:bg-emerald-400 transition-colors"
                         >
-                          Publicar Noticia
+                          {t('Publish News')}
                         </button>
                       </div>
                       <div className="flex flex-col gap-4">
@@ -3083,10 +3413,10 @@ export default function App() {
                         <table className="w-full text-left text-sm">
                           <thead>
                             <tr className="text-zinc-500 border-b border-white/10">
-                              <th className="pb-3 font-medium">Usuario</th>
-                              <th className="pb-3 font-medium">Estado</th>
-                              <th className="pb-3 font-medium">Prompts</th>
-                              <th className="pb-3 font-medium text-right">Acciones</th>
+                              <th className="pb-3 font-medium">{t('User')}</th>
+                              <th className="pb-3 font-medium">{t('Status')}</th>
+                              <th className="pb-3 font-medium">{t('Prompts')}</th>
+                              <th className="pb-3 font-medium text-right">{t('Actions')}</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-white/5">
@@ -3096,16 +3426,16 @@ export default function App() {
                                   <div className="w-8 h-8 rounded-full bg-zinc-800" />
                                   <div>
                                     <div className="font-medium text-white">{currentUser?.email}</div>
-                                    <div className="text-[10px] text-emerald-400 uppercase font-bold">Admin / Creador</div>
+                                    <div className="text-[10px] text-emerald-400 uppercase font-bold">{t('Admin / Creator')}</div>
                                   </div>
                                 </div>
                               </td>
                               <td className="py-4">
-                                <span className="bg-emerald-500/20 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded-full">Activo</span>
+                                <span className="bg-emerald-500/20 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded-full">{t('Active')}</span>
                               </td>
                               <td className="py-4 text-zinc-400">∞</td>
                               <td className="py-4 text-right">
-                                <span className="text-zinc-600 italic text-xs">Propietario</span>
+                                <span className="text-zinc-600 italic text-xs">{t('Owner')}</span>
                               </td>
                             </tr>
                             {allUsers.filter(u => u.uid !== currentUser?.uid).map(user => (
@@ -3218,7 +3548,7 @@ export default function App() {
                         <ul className="text-sm text-zinc-400 space-y-2 mb-6">
                           <li className="flex items-center gap-2"><Icons.Check size={14} className="text-emerald-400" /> 100 {t('daily prompts')}</li>
                           <li className="flex items-center gap-2"><Icons.Check size={14} className="text-emerald-400" /> {t('Magic Enhance')}</li>
-                          <li className="flex items-center gap-2"><Icons.Check size={14} className="text-emerald-400" /> {t('Sin anuncios')}</li>
+                          <li className="flex items-center gap-2"><Icons.Check size={14} className="text-emerald-400" /> {t('No ads')}</li>
                         </ul>
                         <button className="w-full py-2 bg-emerald-500 text-black rounded-xl text-xs font-bold hover:bg-emerald-400 transition-colors">{t('Configure')}</button>
                       </div>
@@ -3271,13 +3601,13 @@ export default function App() {
                   <div className="bg-zinc-900/50 border border-white/5 rounded-2xl p-6">
                     <h3 className="text-lg font-semibold text-white mb-6 flex items-center gap-2">
                       <Icons.Sliders size={20} className="text-emerald-400" />
-                      Controles de Plataforma
+                      {t('Platform Controls')}
                     </h3>
                     <div className="flex flex-col gap-4">
                       <div className="p-4 bg-zinc-950 border border-white/10 rounded-xl flex items-center justify-between">
                         <div>
-                          <div className="text-sm font-bold text-white">Mantenimiento Global</div>
-                          <div className="text-xs text-zinc-500">Bloquea el acceso a todos los usuarios</div>
+                          <div className="text-sm font-bold text-white">{t('Global Maintenance')}</div>
+                          <div className="text-xs text-zinc-500">{t('Blocks access to all users')}</div>
                         </div>
                         <button className="w-10 h-5 bg-zinc-800 rounded-full relative">
                           <div className="absolute top-1 left-1 w-3 h-3 bg-zinc-600 rounded-full" />
@@ -3285,7 +3615,7 @@ export default function App() {
                       </div>
                       <div className="p-4 bg-zinc-950 border border-white/10 rounded-xl flex items-center justify-between">
                         <div>
-                          <div className="text-sm font-bold text-white">Nuevas Funciones (Spoilers)</div>
+                          <div className="text-sm font-bold text-white">{t('New Features (Spoilers)')}</div>
                           <div className="text-xs text-zinc-500">{t('Shows tabs under construction')}</div>
                         </div>
                         <button className="w-10 h-5 bg-emerald-500 rounded-full relative">
@@ -3298,7 +3628,7 @@ export default function App() {
                   <div className="bg-zinc-900/50 border border-white/5 rounded-2xl p-6">
                     <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
                       <Icons.Info size={20} className="text-emerald-400" />
-                      Estado del Sistema
+                      {t('System Status')}
                     </h3>
                     <div className="space-y-3">
                       <div className="flex justify-between text-xs">
@@ -3306,17 +3636,17 @@ export default function App() {
                         <span className="text-zinc-300">v2.4.0-beta</span>
                       </div>
                       <div className="flex justify-between text-xs">
-                        <span className="text-zinc-500">Base de Datos</span>
+                        <span className="text-zinc-500">{t('Database')}</span>
                         <span className="text-emerald-400 flex items-center gap-1">
                           <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-                          Conectado (Firebase)
+                          {t('Connected (Firebase)')}
                         </span>
                       </div>
                       <div className="flex justify-between text-xs">
-                        <span className="text-zinc-500">API Gemini</span>
+                        <span className="text-zinc-500">{t('Gemini API')}</span>
                         <span className="text-emerald-400 flex items-center gap-1">
                           <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-                          Activa
+                          {t('Active (API)')}
                         </span>
                       </div>
                     </div>
@@ -3420,13 +3750,13 @@ export default function App() {
           <div className="flex-1 p-4 pb-8 overflow-y-auto custom-scrollbar">
             {selectedBlocks.length === 0 && customInstructions.length === 0 ? (
               <div className="text-zinc-500 text-sm text-center mt-10">
-                Construye tu escena para recibir sugerencias contextuales.
+                Construye tu influencer para recibir sugerencias contextuales.
               </div>
             ) : (
               <div className="space-y-6">
                 <div>
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Sugerencias para tu escena</h3>
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Sugerencias para tu influencer</h3>
                     <div className="flex items-center gap-1">
                       <button 
                         onClick={() => setSuggestionPage(p => Math.max(0, p - 1))}
@@ -4877,7 +5207,7 @@ export default function App() {
                   </div>
                   <div>
                     <h3 className="text-lg font-bold text-white leading-tight">{t('Settings')}</h3>
-                    <p className="text-[10px] text-zinc-500">{t('Personalize your SceneCraft AI experience')}</p>
+                    <p className="text-[10px] text-zinc-500">{t('Personalize your SceneCraft v1.2 experience')}</p>
                   </div>
                 </div>
                 <button onClick={() => setShowSettings(false)} className="p-1.5 hover:bg-white/5 rounded-full transition-colors text-zinc-400">
@@ -5003,7 +5333,7 @@ export default function App() {
                     }}
                     className="bg-zinc-950 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none"
                   >
-                    <option value="scenecraft">SceneCraft Soul</option>
+                    <option value="scenecraft">InfluencerCraft Soul</option>
                     <option value="midjourney">Midjourney (V6+)</option>
                     <option value="stable-diffusion">Stable Diffusion (XL/3)</option>
                     <option value="dalle-3">DALL-E 3</option>
@@ -5118,7 +5448,7 @@ export default function App() {
               </div>
 
               <div className="p-4 bg-zinc-950/50 text-center">
-                <p className="text-[10px] text-zinc-600 uppercase tracking-widest font-bold">SceneCraft AI v2.5 - 2026</p>
+                <p className="text-[10px] text-zinc-600 uppercase tracking-widest font-bold">SceneCraft v1.2 - 2026</p>
               </div>
             </motion.div>
           </div>
@@ -5126,7 +5456,7 @@ export default function App() {
 
       {/* Expanded Scene Structure Modal */}
       <AnimatePresence>
-        {isSceneStructureExpanded && (
+        {isInfluencerStructureExpanded && (
           <motion.div 
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black/90 backdrop-blur-md z-[200] flex items-center justify-center p-4 md:p-10"
@@ -5148,7 +5478,7 @@ export default function App() {
                   </div>
                 </div>
                 <button 
-                  onClick={() => setIsSceneStructureExpanded(false)}
+                  onClick={() => setIsInfluencerStructureExpanded(false)}
                   className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-xl transition-all"
                 >
                   <Icons.X size={24} />
@@ -5230,7 +5560,7 @@ export default function App() {
                   onClick={() => {
                     setSelectedBlocks([]);
                     setCustomInstructions([]);
-                    setIsSceneStructureExpanded(false);
+                    setIsInfluencerStructureExpanded(false);
                   }}
                   className="px-6 py-2 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white text-xs font-bold uppercase tracking-widest rounded-xl border border-red-500/20 transition-all"
                 >
@@ -5338,8 +5668,8 @@ export default function App() {
             onDeleteFolder={handleDeleteFolder}
             onSavePrompt={handleSavePrompt}
             onDeletePrompt={handleDeletePrompt}
-            baseCategories={workMode === 'influencer' ? INFLUENCER_CATEGORIES : GENERAL_CATEGORIES}
-            baseBlocks={workMode === 'influencer' ? INFLUENCER_BLOCKS : GENERAL_BLOCKS}
+            baseCategories={(workMode === 'influencer' || (workMode === 'prompting' && promptSubMode === 'influencer')) ? INFLUENCER_CATEGORIES : GENERAL_CATEGORIES}
+            baseBlocks={(workMode === 'influencer' || (workMode === 'prompting' && promptSubMode === 'influencer')) ? INFLUENCER_BLOCKS : GENERAL_BLOCKS}
             selectedBlocks={selectedBlocks}
             toggleBlock={toggleBlock}
             setConfirmModal={setConfirmModal}
@@ -5448,6 +5778,122 @@ export default function App() {
         )}
       </AnimatePresence>
 
+      {/* Real-time Invitation Notification */}
+      <AnimatePresence>
+        {activeInvitation && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.9 }}
+            className="fixed bottom-8 right-8 z-[1000] w-80 bg-zinc-900 border border-emerald-500/30 rounded-2xl shadow-2xl shadow-emerald-500/10 overflow-hidden"
+          >
+            <div className="p-4">
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400 shrink-0">
+                  <Icons.UserPlus size={20} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-white mb-1">
+                    {t('Invitation received!')}
+                  </p>
+                  <p className="text-xs text-zinc-400 leading-relaxed">
+                    <span className="text-emerald-400 font-bold">{activeInvitation.inviterName}</span> {t('invited you to join')} <span className="text-white font-bold">{activeInvitation.topicTitle}</span>
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4 flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    if (socket && currentUser) {
+                      socket.emit('join-topic', { topicId: activeInvitation.topicId, userId: currentUser.uid });
+                      setActiveTopic(coworkingTopics.find(t => t.id === activeInvitation.topicId) || null);
+                      setWorkMode('coworking');
+                    }
+                    setActiveInvitation(null);
+                  }}
+                  className="flex-1 py-2 bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
+                >
+                  {t('Accept')} ({Math.ceil((activeInvitation.expiresAt - Date.now()) / 1000)}s)
+                </button>
+                <button
+                  onClick={() => setActiveInvitation(null)}
+                  className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-400 text-xs font-bold rounded-lg transition-colors"
+                >
+                  {t('Decline')}
+                </button>
+              </div>
+            </div>
+            <div className="h-1 bg-zinc-800 w-full overflow-hidden">
+              <motion.div 
+                initial={{ width: '100%' }}
+                animate={{ width: '0%' }}
+                transition={{ duration: 10, ease: 'linear' }}
+                className="h-full bg-emerald-500"
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Real-time Invitation Notification */}
+      <AnimatePresence>
+        {activeInvitation && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.9 }}
+            className="fixed bottom-8 right-8 z-[1000] w-80 bg-zinc-900 border border-emerald-500/30 rounded-2xl shadow-2xl shadow-emerald-500/10 overflow-hidden"
+          >
+            <div className="p-4">
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400 shrink-0">
+                  <Icons.UserPlus size={20} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-white mb-1">
+                    {t('Invitation received!')}
+                  </p>
+                  <p className="text-xs text-zinc-400 leading-relaxed">
+                    <span className="text-emerald-400 font-bold">{activeInvitation.inviterName}</span> {t('invited you to join')} <span className="text-white font-bold">{activeInvitation.topicTitle}</span>
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4 flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    if (socket && currentUser) {
+                      socket.emit('join-topic', { topicId: activeInvitation.topicId, userId: currentUser.uid });
+                      setActiveTopic(coworkingTopics.find(t => t.id === activeInvitation.topicId) || null);
+                      setWorkMode('coworking');
+                    }
+                    setActiveInvitation(null);
+                  }}
+                  className="flex-1 py-2 bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
+                >
+                  {t('Accept')} ({Math.ceil((activeInvitation.expiresAt - Date.now()) / 1000)}s)
+                </button>
+                <button
+                  onClick={() => setActiveInvitation(null)}
+                  className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-400 text-xs font-bold rounded-lg transition-colors"
+                >
+                  {t('Decline')}
+                </button>
+              </div>
+            </div>
+            <div className="h-1 bg-zinc-800 w-full overflow-hidden">
+              <motion.div 
+                initial={{ width: '100%' }}
+                animate={{ width: '0%' }}
+                transition={{ duration: 10, ease: 'linear' }}
+                className="h-full bg-emerald-500"
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Toast Notification */}
       <AnimatePresence>
         {toast.show && (
@@ -5466,6 +5912,195 @@ export default function App() {
              <Icons.Check size={16} />}
             {toast.message}
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Coworking Invite Modal */}
+      <AnimatePresence>
+        {showInviteModal && activeTopic && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowInviteModal(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-md bg-[#0F0F0F] border border-white/10 rounded-3xl shadow-2xl overflow-hidden"
+            >
+              <div className="p-6 border-b border-white/5 flex items-center justify-between bg-[#0A0A0A]/50">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center text-orange-400">
+                    <Icons.UserPlus size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-white">{t('Invite to Topic')}</h3>
+                    <p className="text-xs text-zinc-500">{activeTopic.title}</p>
+                  </div>
+                </div>
+                <button onClick={() => setShowInviteModal(false)} className="p-2 hover:bg-white/5 rounded-full transition-colors text-zinc-400">
+                  <Icons.X size={20} />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-6">
+                {/* Email / Link Invitation */}
+                <div className="space-y-3">
+                  <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">{t('Invite by Email or Link')}</label>
+                  <div className="flex gap-2">
+                    <div className="flex-1 bg-zinc-950 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-zinc-400 flex items-center gap-2 overflow-hidden">
+                      <Icons.Link size={14} className="shrink-0" />
+                      <span className="truncate">{window.location.origin}?invite={activeTopic.id}</span>
+                    </div>
+                    <button 
+                      onClick={() => {
+                        navigator.clipboard.writeText(`${window.location.origin}?invite=${activeTopic.id}`);
+                        setToast({ show: true, message: t('Invite link copied!'), type: 'success' });
+                        setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
+                      }}
+                      className="px-4 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold rounded-xl transition-colors shrink-0"
+                    >
+                      {t('Copy')}
+                    </button>
+                    <a 
+                      href={`mailto:?subject=${encodeURIComponent(t('Invitation to join {topic}').replace('{topic}', activeTopic.title))}&body=${encodeURIComponent(t('Hello! I invite you to collaborate on SceneCraft v1.2. Join my topic here: {link}').replace('{link}', `${window.location.origin}?invite=${activeTopic.id}`))}`}
+                      className="p-2.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-xl transition-colors shrink-0 flex items-center justify-center"
+                      title={t('Send by Email')}
+                    >
+                      <Icons.Mail size={18} />
+                    </a>
+                  </div>
+                  <p className="text-[10px] text-zinc-600 leading-relaxed">
+                    {t('Share this link with anyone. They will need to register or log in to join the topic.')}
+                  </p>
+                </div>
+
+                <div className="h-px bg-white/5" />
+
+                {/* User Search Invitation */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">{t('Invite Platform Users')}</label>
+                    <span className="text-[10px] text-zinc-600">{allUsers.length} {t('users available')}</span>
+                  </div>
+                  
+                  <div className="relative">
+                    <Icons.Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+                    <input 
+                      type="text"
+                      placeholder={t('Search by username...')}
+                      value={coworkingInviteSearch}
+                      onChange={(e) => setCoworkingInviteSearch(e.target.value)}
+                      className="w-full bg-zinc-950 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-orange-500/50 transition-all"
+                    />
+                  </div>
+
+                  <div className="max-h-[200px] overflow-y-auto custom-scrollbar space-y-2 pr-2">
+                    {allUsers
+                      .filter(u => u.uid !== currentUser?.uid && !activeTopic.members.includes(u.uid))
+                      .filter(u => u.displayName.toLowerCase().includes(coworkingInviteSearch.toLowerCase()))
+                      .map((user) => (
+                      <div key={user.uid} className="flex items-center justify-between p-2 rounded-xl bg-zinc-900/50 border border-white/5 hover:border-white/10 transition-all group">
+                        <div className="flex items-center gap-3">
+                          <div className="relative">
+                            <img src={user.photoURL || `https://ui-avatars.com/api/?name=${user.displayName}&background=random`} alt="" className="w-8 h-8 rounded-full object-cover" referrerPolicy="no-referrer" />
+                            {user.isConnected && (
+                              <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full ring-2 ring-[#0F0F0F]" />
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold text-white">{user.displayName}</p>
+                            <p className="text-[10px] text-zinc-500">{user.hashtag}</p>
+                          </div>
+                        </div>
+                        <button 
+                          onClick={() => {
+                            if (socket && currentUser) {
+                              socket.emit('send-invite', {
+                                targetUserId: user.uid,
+                                topicId: activeTopic.id,
+                                topicTitle: activeTopic.title,
+                                inviterName: currentUser.displayName,
+                                inviterId: currentUser.uid
+                              });
+                              setToast({ show: true, message: t('Invitation sent to {user}').replace('{user}', user.displayName), type: 'success' });
+                              setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
+                            }
+                          }}
+                          className="px-3 py-1.5 rounded-lg bg-orange-500/10 text-orange-400 text-[10px] font-bold hover:bg-orange-500 hover:text-black transition-all opacity-0 group-hover:opacity-100"
+                        >
+                          {t('Invite')}
+                        </button>
+                      </div>
+                    ))}
+                    {allUsers.filter(u => u.uid !== currentUser?.uid && !activeTopic.members.includes(u.uid)).length === 0 && (
+                      <div className="py-8 text-center">
+                        <p className="text-xs text-zinc-600">{t('No users found to invite')}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Attachment View Modal */}
+      <AnimatePresence>
+        {showAttachmentModal && selectedAttachment && (
+          <div className="fixed inset-0 bg-black/95 backdrop-blur-xl z-[200] flex items-center justify-center p-4 md:p-12">
+            <button 
+              onClick={() => setShowAttachmentModal(false)}
+              className="absolute top-6 right-6 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all z-50"
+            >
+              <Icons.X size={24} />
+            </button>
+            
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="relative w-full h-full flex flex-col items-center justify-center"
+            >
+              <img 
+                src={selectedAttachment.url} 
+                alt="Attachment" 
+                className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl"
+              />
+              
+              <div className="mt-6 flex flex-col items-center gap-2">
+                <div className="flex items-center gap-3 bg-white/5 px-4 py-2 rounded-full border border-white/10">
+                  <span className="text-zinc-400 text-sm">{t('Shared by')}</span>
+                  <span className="text-white font-bold text-sm">{selectedAttachment.userName}</span>
+                </div>
+                
+                <div className="flex gap-4 mt-4">
+                  <button 
+                    onClick={() => {
+                      setWorkMode('recreation');
+                      setUploadedImage(selectedAttachment.url);
+                      setShowAttachmentModal(false);
+                    }}
+                    className="px-6 py-2 bg-emerald-500 text-black font-bold rounded-xl hover:bg-emerald-400 transition-all flex items-center gap-2"
+                  >
+                    <Icons.RefreshCw size={18} /> {t('Recreation')}
+                  </button>
+                  <a 
+                    href={selectedAttachment.url} 
+                    download={`attachment-${Date.now()}.png`}
+                    className="px-6 py-2 bg-zinc-800 text-white font-bold rounded-xl hover:bg-zinc-700 transition-all flex items-center gap-2 border border-white/10"
+                  >
+                    <Icons.Download size={18} /> {t('Download')}
+                  </a>
+                </div>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>

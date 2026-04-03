@@ -1,5 +1,5 @@
 {
-  "name": "SceneCraft AI 1.2",
-  "description": "A visual scene builder for AI images, focusing on speed, coherence, and reusability. Transforms visual decisions into high-quality, structured prompts.",
+  "name": "SceneCraft v1.2",
+  "description": "A visual influencer prompt builder for AI images, focusing on speed, coherence, and reusability. Transforms visual decisions into high-quality, structured prompts.",
   "requestFramePermissions": []
 }

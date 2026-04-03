@@ -3,7 +3,7 @@ import { Category, Block } from './types';
 export const INFLUENCER_CATEGORIES: Category[] = [
   { id: 'result', label: 'Visual Result', icon: 'Image', color: 'text-blue-400' },
   { id: 'focus', label: 'Main Focus', icon: 'Crosshair', color: 'text-indigo-400' },
-  { id: 'scene', label: 'Scene Type', icon: 'MapPin', color: 'text-cyan-400' },
+  { id: 'scene', label: 'Influencer', icon: 'MapPin', color: 'text-cyan-400' },
   { id: 'environment', label: 'Environment', icon: 'Cloud', color: 'text-sky-400' },
   { id: 'action', label: 'Action / Situation', icon: 'Activity', color: 'text-teal-400' },
   { id: 'movement', label: 'Movement', icon: 'Wind', color: 'text-emerald-400' },
@@ -152,7 +152,7 @@ export const INFLUENCER_BLOCKS: Block[] = [
   { id: 'foc_10', categoryId: 'focus', label: 'Hands focus', value: 'close up focus on hands' },
   { id: 'foc_11', categoryId: 'focus', label: 'Silhouette focus', value: 'focus on body silhouette' },
 
-  // Scene Type
+  // Influencer Type
   { id: 'sce_1', categoryId: 'scene', label: 'In bedroom', value: 'in a cozy bedroom' },
   { id: 'sce_2', categoryId: 'scene', label: 'In bed', value: 'in bed' },
   { id: 'sce_3', categoryId: 'scene', label: 'In kitchen', value: 'in a kitchen' },

@@ -99,20 +99,29 @@ Instructions:
  */
 export async function analyzeChatInput(
   input: string,
-  currentBlocks: Block[]
+  currentBlocks: Block[],
+  mode: 'influencer' | 'general'
 ): Promise<{ blocksToAdd: string[]; blocksToRemove: string[] }> {
   const currentBlockIds = currentBlocks.map(b => b.id);
-  const availableBlocksJson = ALL_BLOCKS.map(b => ({ id: b.id, label: b.label, category: b.categoryId }));
+  
+  // Prioritize active blocks in the prompt
+  const activeBlocks = mode === 'influencer' ? INFLUENCER_BLOCKS : GENERAL_BLOCKS;
+  const otherBlocks = mode === 'influencer' ? GENERAL_BLOCKS : INFLUENCER_BLOCKS;
+  
+  const availableBlocksJson = [
+    ...activeBlocks.map(b => ({ id: b.id, label: b.label, category: b.categoryId, priority: 'high' })),
+    ...otherBlocks.map(b => ({ id: b.id, label: b.label, category: b.categoryId, priority: 'low' }))
+  ];
 
   const prompt = `
-You are an AI assistant for a visual prompt builder app. The user has typed a request to modify their current scene.
+You are an AI assistant for a visual prompt builder app. The user has typed a request to modify their current influencer.
 Your job is to map their request to the available blocks.
 
 User request: "${input}"
 
 Currently selected block IDs: ${JSON.stringify(currentBlockIds)}
 
-Available blocks:
+Available blocks (prioritize 'high' priority blocks from the active ${mode} mode):
 ${JSON.stringify(availableBlocksJson)}
 
 Determine which block IDs should be added and which should be removed to fulfill the user's request.
@@ -158,18 +167,29 @@ Return a JSON object with two arrays of strings: "blocksToAdd" and "blocksToRemo
 /**
  * Suggests related blocks based on the current selection (Brainstorming).
  */
-export async function suggestRelatedBlocks(currentBlocks: Block[]): Promise<string[]> {
+export async function suggestRelatedBlocks(
+  currentBlocks: Block[],
+  mode: 'influencer' | 'general'
+): Promise<string[]> {
   if (currentBlocks.length === 0) return [];
 
   const currentBlockIds = currentBlocks.map(b => b.id);
-  const availableBlocksJson = ALL_BLOCKS.map(b => ({ id: b.id, label: b.label, category: b.categoryId }));
+  
+  // Prioritize active blocks in the prompt
+  const activeBlocks = mode === 'influencer' ? INFLUENCER_BLOCKS : GENERAL_BLOCKS;
+  const otherBlocks = mode === 'influencer' ? GENERAL_BLOCKS : INFLUENCER_BLOCKS;
+  
+  const availableBlocksJson = [
+    ...activeBlocks.map(b => ({ id: b.id, label: b.label, category: b.categoryId, priority: 'high' })),
+    ...otherBlocks.map(b => ({ id: b.id, label: b.label, category: b.categoryId, priority: 'low' }))
+  ];
 
   const prompt = `
-You are a creative director assistant. Based on the currently selected blocks for an image prompt, suggest 3 to 5 other available blocks that would perfectly complement the scene.
+You are a creative director assistant. Based on the currently selected blocks for an image prompt, suggest 3 to 5 other available blocks that would perfectly complement the influencer.
 
 Currently selected block IDs: ${JSON.stringify(currentBlockIds)}
 
-Available blocks:
+Available blocks (prioritize 'high' priority blocks from the active ${mode} mode):
 ${JSON.stringify(availableBlocksJson)}
 
 Return a JSON array of strings containing the IDs of the suggested blocks. Do not suggest blocks that are already selected.
